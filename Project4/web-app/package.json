@@ -1,0 +1,11 @@
+{
+  "name": "cheer-cake-order-form",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Arabic RTL order form for Cheer Cake",
+  "scripts": {
+    "check": "node --check js/config.js && node --check js/multipart.js && node --check js/add-ons.js && node --check js/image-uploads.js && node --check js/localization.js && node --check js/order-code.js && node --check js/dom.js && node --check js/pricing.js && node --check js/validation.js && node --check js/summary.js && node --check js/order-form.js && node --check js/edit-order.js",
+    "test": "node --test tests/*.test.js"
+  }
+}

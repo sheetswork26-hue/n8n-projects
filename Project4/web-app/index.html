@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fff8f6">
+  <title>تشير كيك | طلب كيكة</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/order-form.js"></script>
+</head>
+<body>
+  <main class="page">
+    <div class="shell">
+      <header>
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">✿</div>
+          <div class="brand-name">Cheer <span>Cake</span></div>
+        </div>
+        <p class="subtitle">احكيلنا عن الكيكة وتفاصيل التوصيل</p>
+        <nav class="page-nav" aria-label="التنقل بين صفحات الطلبات">
+          <a class="page-nav-link active" href="index.html" aria-current="page">إنشاء أوردر جديد</a>
+          <a class="page-nav-link" href="edit-order.html">تعديل أوردر موجود</a>
+        </nav>
+      </header>
+
+      <form class="card" id="orderForm" novalidate>
+        <div class="section-title">بياناتك</div>
+        <div class="grid">
+          <div class="field">
+            <label for="name">الاسم بالكامل <span class="req">*</span></label>
+            <input id="name" name="name" autocomplete="name" placeholder="اكتب اسمك" required minlength="3">
+            <p class="error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="phone">رقم الموبايل المصري <span class="req">*</span></label>
+            <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="01XXXXXXXXX" maxlength="11" dir="ltr" required>
+            <p class="hint">رقم من 11 رقم ويبدأ بـ 010 أو 011 أو 012 أو 015</p>
+            <p class="error" hidden></p>
+          </div>
+        </div>
+
+        <div class="section-title gap-top">بيانات متابعة الطلب</div>
+        <div class="grid">
+          <div class="field full">
+            <label for="moderatorName">اسم المودريتور <span class="req">*</span></label>
+            <select id="moderatorName" name="moderatorName" required>
+              <option value="">اختاري اسم المودريتور</option>
+              <option value="فاطمة">فاطمة</option>
+              <option value="امنية">امنية</option>
+              <option value="اسراء">اسراء</option>
+              <option value="منار">منار</option>
+              <option value="بسنت">بسنت</option>
+              <option value="سما">سما</option>
+            </select>
+            <p class="error" hidden></p>
+          </div>
+        </div>
+
+        <div class="section-title gap-top">طريقة الاستلام</div>
+        <div class="grid">
+          <div class="field full">
+            <label for="fulfillmentMethod">طريقة استلام الطلب <span class="req">*</span></label>
+            <select id="fulfillmentMethod" name="fulfillmentMethod" required>
+              <option value="delivery">توصيل للعنوان</option>
+              <option value="pickup">استلام من مكان</option>
+            </select>
+            <p class="error" hidden></p>
+          </div>
+        </div>
+
+        <div id="deliveryAddressFields">
+          <div class="section-title gap-top">عنوان التوصيل</div>
+          <div class="grid">
+            <div class="field">
+              <label for="city">المحافظة <span class="req">*</span></label>
+              <select id="city" name="city" required>
+                <option value="">اختار المحافظة</option>
+                <option value="Cairo">القاهرة</option>
+                <option value="Giza">الجيزة</option>
+              </select>
+              <p class="error" hidden></p>
+            </div>
+            <div class="field">
+              <label for="area">المنطقة <span class="req">*</span></label>
+              <select id="area" name="area" required disabled>
+                <option value="">اختار المحافظة الأول</option>
+              </select>
+              <p class="error" hidden></p>
+              <p class="hint" id="deliveryNotice" aria-live="polite"></p>
+            </div>
+            <div class="field full">
+              <label for="addressDetails">العنوان بالتفصيل <span class="req">*</span></label>
+              <textarea id="addressDetails" name="addressDetails" required minlength="10" placeholder="رقم العقار والدور والشقة وأقرب علامة مميزة"></textarea>
+              <p class="error" hidden></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title gap-top">موعد التسليم</div>
+          <div class="grid">
+            <div class="field full">
+              <label for="deliveryDate">يوم التسليم <span class="req">*</span></label>
+              <input id="deliveryDate" name="deliveryDate" type="date" required>
+              <p class="error" hidden></p>
+            </div>
+            <div class="field">
+              <label for="deliveryTimeFrom">وقت التسليم من <span class="req">*</span></label>
+              <select id="deliveryTimeFrom" name="deliveryTimeFrom" required>
+                <option value="">اختار من الساعة</option>
+              </select>
+              <p class="error" hidden></p>
+            </div>
+            <div class="field">
+              <label for="deliveryTimeTo">وقت التسليم إلى <span class="req">*</span></label>
+              <select id="deliveryTimeTo" name="deliveryTimeTo" required disabled>
+                <option value="">اختار ميعاد البداية الأول</option>
+              </select>
+              <p class="hint">اختار وقتًا من 10 صباحًا إلى 6 مساءً، أو «آخر معاد» لو مش محتاج تحدد فترة.</p>
+              <p class="error" hidden></p>
+            </div>
+          </div>
+
+        <div class="section-title gap-top">تفاصيل الكيكة</div>
+        <div class="grid">
+          <div class="field">
+            <label for="cakeType">نوع الكيكة <span class="req">*</span></label>
+            <select id="cakeType" name="cakeType" required>
+              <option value="">اختار نوع الكيكة</option>
+              <option value="single_tier">كيكة دور واحد</option>
+              <option value="two_tier">كيكة دورين</option>
+              <option value="three_tier">كيكة 3 أدوار</option>
+              <option value="rectangular_square">كيكة مستطيلة أو مربعة</option>
+              <option value="italian">كيكة إيطالي</option>
+            </select>
+            <p class="error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="cakeSize">الحجم المتاح <span class="req">*</span></label>
+            <select id="cakeSize" name="cakeSize" required disabled>
+              <option value="">اختار نوع الكيكة الأول</option>
+            </select>
+            <p class="hint" id="sizeHint">اختار نوع الكيكة عشان تظهر الأحجام المتاحة.</p>
+            <p class="error" hidden></p>
+          </div>
+          <div class="field full">
+            <p class="price-note" id="basePriceNote" aria-live="polite">اختار نوع الكيكة والحجم لعرض السعر الأساسي الثابت. تقدر تضيف زيادة للتصميم عند الحاجة.</p>
+            <div class="grid price-grid cake-pricing-fields">
+              <div class="field"><label for="cakeBasePriceDisplay">السعر الأساسي للتورتة (ثابت)</label><input id="cakeBasePriceDisplay" type="number" readonly value="0"></div>
+              <div class="field"><label for="cakeDesignExtraEGP">زيادة سعر التورتة بسبب التصميم (اختياري)</label><input id="cakeDesignExtraEGP" name="cakeDesignExtraEGP" type="number" min="0" step="0.01" inputmode="decimal" value="0" placeholder="0"></div>
+            </div>
+          </div>
+          <div class="field full">
+            <label>الحشو <span class="req">*</span></label>
+            <div class="choices">
+              <div class="choice">
+                <input type="radio" id="vanilla" name="filling" value="vanilla" required>
+                <label for="vanilla">
+                  <svg class="option-art vanilla-art" viewBox="0 0 64 48" aria-hidden="true">
+                    <path d="M32 5c-7 8-11 13-11 21a11 11 0 0 0 22 0C43 18 39 13 32 5Z" fill="#fff4b8" stroke="#b68b2c" stroke-width="1.8"/>
+                    <path d="M31 15c-3 5-4 9-3 14" fill="none" stroke="#d9ad48" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M14 37c5-4 9-4 14 0s9 4 14 0 8-4 11 0" fill="none" stroke="#8d6bb5" stroke-width="2.5" stroke-linecap="round"/>
+                  </svg>
+                  <span>فانيليا</span>
+                </label>
+              </div>
+              <div class="choice">
+                <input type="radio" id="chocolate" name="filling" value="chocolate">
+                <label for="chocolate">
+                  <svg class="option-art chocolate-art" viewBox="0 0 64 48" aria-hidden="true">
+                    <path d="M12 15 42 7l11 7-30 9Z" fill="#a96a48" stroke="#65402f" stroke-width="1.5" stroke-linejoin="round"/>
+                    <path d="M12 15v20l11 7V23Z" fill="#7a432f" stroke="#65402f" stroke-width="1.5" stroke-linejoin="round"/>
+                    <path d="M23 23 53 14v20l-30 8Z" fill="#8f5035" stroke="#65402f" stroke-width="1.5" stroke-linejoin="round"/>
+                    <path d="m28 24 7-2v6l-7 2Zm11-3 7-2v6l-7 2Zm-11 11 7-2v5l-7 2Zm11-3 7-2v5l-7 2Z" fill="#c58b5d"/>
+                    <path d="m17 18 5 3v5" fill="none" stroke="#d49b70" stroke-width="1.5"/>
+                  </svg>
+                  <span>شوكولاتة</span>
+                </label>
+              </div>
+              <div class="choice">
+                <input type="radio" id="half_and_half" name="filling" value="half_and_half">
+                <label for="half_and_half">
+                  <svg class="option-art half-art" viewBox="0 0 64 48" aria-hidden="true">
+                    <path d="M10 18h44l-4 23H14Z" fill="#f4d6a0" stroke="#9a6b42" stroke-width="1.6" stroke-linejoin="round"/>
+                    <path d="M32 18h22l-4 23H32Z" fill="#8b4c35"/>
+                    <path d="M10 18c0-5 6-7 11-4 4-5 10-3 11 2 4-5 10-3 11 1 6-4 11-1 11 1Z" fill="#fff0c4" stroke="#d6b26e" stroke-width="1.3"/>
+                    <path d="M32 18v23" stroke="#fff" stroke-width="1.5" stroke-dasharray="2 2"/>
+                    <circle cx="24" cy="12" r="3" fill="#fff7dc"/><circle cx="41" cy="13" r="3" fill="#71402f"/>
+                  </svg>
+                  <span>نصف فانيليا ونصف شوكولاتة</span>
+                </label>
+              </div>
+            </div>
+            <p class="error" id="fillingError" hidden></p>
+          </div>
+          <div class="field full">
+            <label>التغطية <span class="req">*</span></label>
+            <div class="choices two">
+              <div class="choice">
+                <input type="radio" id="sugar_paste" name="covering" value="sugar_paste" required>
+                <label for="sugar_paste">
+                  <svg class="option-art fondant-art" viewBox="0 0 64 48" aria-hidden="true">
+                    <ellipse cx="32" cy="39" rx="24" ry="4" fill="#e9e0f1"/>
+                    <path d="M13 20h38v16a4 4 0 0 1-4 4H17a4 4 0 0 1-4-4Z" fill="#b9a0dc" stroke="#75529e" stroke-width="1.6"/>
+                    <path d="M13 20c0-7 8-11 19-11s19 4 19 11-8 7-19 7-19-1-19-7Z" fill="#e5d8f5" stroke="#75529e" stroke-width="1.6"/>
+                    <path d="M21 19c4-4 18-5 24 0" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M32 11v4m-2-2h4" stroke="#d6a900" stroke-width="1.8" stroke-linecap="round"/>
+                  </svg>
+                  <span>عجينة سكر</span>
+                </label>
+              </div>
+              <div class="choice">
+                <input type="radio" id="cream" name="covering" value="cream">
+                <label for="cream">
+                  <svg class="option-art cream-art" viewBox="0 0 64 48" aria-hidden="true">
+                    <ellipse cx="32" cy="39" rx="24" ry="4" fill="#e9e0f1"/>
+                    <path d="M13 23h38v13a4 4 0 0 1-4 4H17a4 4 0 0 1-4-4Z" fill="#f4c7d9" stroke="#b75f8b" stroke-width="1.6"/>
+                    <path d="M13 23c0-6 8-9 19-9s19 3 19 9-8 6-19 6-19-1-19-6Z" fill="#fff5fa" stroke="#b75f8b" stroke-width="1.6"/>
+                    <path d="M22 17c-2-5 5-7 8-2 0-7 9-8 10-2 6-2 9 4 4 7H22Z" fill="#fff" stroke="#d99ab8" stroke-width="1.4"/>
+                    <path d="M31 10c-3-4 3-6 5-2 2 3-2 5-5 2Z" fill="#e85d75"/>
+                  </svg>
+                  <span>كريمة</span>
+                </label>
+              </div>
+            </div>
+            <p class="error" id="coveringError" hidden></p>
+          </div>
+          <div class="field full">
+            <label for="cakeImage">صورة مرجعية للكيكة <span class="required-mark">(إجباري)</span></label>
+            <input id="cakeImage" name="cakeImage" type="file" accept="image/jpeg,image/png,image/webp" multiple required aria-describedby="cakeImageHint cakeImageError">
+            <p class="hint" id="cakeImageHint">لازم ترفع صورة واحدة على الأقل للتصميم المطلوب (JPG أو PNG أو WEBP، بحد أقصى 8 ميجابايت للصورة).</p>
+            <div class="image-preview-wrap" id="imagePreviewWrap" hidden>
+              <div class="image-gallery" id="cakeImageGallery"></div>
+            </div>
+            <p class="error" id="cakeImageError" hidden></p>
+          </div>
+          <div class="field full">
+            <div class="section-title gap-top">إضافات مع التورتة 😍🍩🍪</div>
+            <p class="hint">السعر الأساسي لكل إضافة ثابت. لو التصميم محتاج تكلفة إضافية، اكتب الزيادة الاختيارية للصنف.</p>
+            <div id="addOnsList" class="addon-list"></div>
+            <button id="addAddonBtn" class="secondary-button" type="button">+ إضافة صنف</button>
+            <div class="addon-grand-total">إجمالي الإضافات: <strong id="addOnsTotalDisplay">0 جنيه</strong></div>
+          </div>
+          <div class="field full">
+            <label for="details">تفاصيل إضافية (اختياري)</label>
+            <textarea id="details" name="details" placeholder="الاسم والسن المكتوبين على الكيكة، والألوان أو أي طلبات تانية"></textarea>
+          </div>
+          <div class="field">
+            <label for="discountType">خصم على الطلب (اختياري)</label>
+            <select id="discountType" name="discountType">
+              <option value="none">بدون خصم</option>
+              <option value="percentage">خصم بنسبة مئوية (%)</option>
+              <option value="amount">خصم بمبلغ ثابت (جنيه)</option>
+            </select>
+            <p class="hint">الخصم بيتحسب على إجمالي الطلب شامل التوصيل.</p>
+          </div>
+          <div class="field" id="discountValueField" hidden>
+            <label for="discountValue" id="discountValueLabel">قيمة الخصم</label>
+            <input id="discountValue" name="discountValue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="اكتب قيمة الخصم" disabled>
+            <p class="error" id="discountError" hidden></p>
+          </div>
+          <div class="field full deposit-payment-group">
+            <div class="section-title gap-top">بيانات الديبوزيت</div>
+            <div class="grid deposit-payment-grid">
+              <div class="field">
+                <label for="depositEGP">قيمة الديبوزيت بالجنيه</label>
+                <input id="depositEGP" name="depositEGP" type="number" min="0" step="0.01"
+                  inputmode="decimal" value="0" placeholder="مثال: 500">
+                <p class="hint">لو هترفع صورة إيصال، لازم تكتب قيمة الديبوزيت المدفوعة. لو مفيش دفعة، سيب القيمة صفر ومن غير صورة إيصال.</p>
+                <p class="error" hidden></p>
+              </div>
+              <div class="field">
+                <label for="remainingEGP">المتبقي بعد الديبوزيت</label>
+                <input id="remainingEGP" type="text" value="0 جنيه" readonly aria-live="polite">
+                <p class="hint">بيتحسب تلقائيًا من إجمالي الطلب ناقص الديبوزيت.</p>
+              </div>
+            </div>
+            <div class="field full">
+            <label for="depositImage">صورة إيصال الديبوزيت (اختياري — تتطلب إدخال قيمة الديبوزيت)</label>
+            <input id="depositImage" name="depositImage" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+            <p class="hint">ارفع صورة أو أكتر لإيصال الدفعة المقدمة (JPG أو PNG أو WEBP، بحد أقصى 8 ميجابايت للصورة).</p>
+            <div class="image-preview-wrap" id="depositImagePreviewWrap" hidden>
+              <div class="image-gallery" id="depositImageGallery"></div>
+            </div>
+            <p class="error" id="depositImageError" hidden></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="submit" id="submitBtn" type="submit">إرسال طلب الكيكة&nbsp; ←</button>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <section class="order-summary" id="orderSummary" hidden aria-labelledby="summaryTitle">
+          <div class="summary-heading">
+            <h2 id="summaryTitle">ملخص الطلب</h2>
+            <span class="summary-mark" aria-hidden="true">✓</span>
+          </div>
+          <div id="summaryText" class="summary-content" aria-label="تفاصيل ملخص الطلب"></div>
+          <button class="copy-button" type="button" id="copySummaryBtn">
+            <span aria-hidden="true">▢</span> نسخ ملخص الطلب
+          </button>
+          <p class="copy-status" id="copyStatus" role="status" aria-live="polite"></p>
+        </section>
+      </form>
+      <p class="footer">تشير كيك · معمول عشان لحظاتك المميزة</p>
+    </div>
+  </main>
+</body>
+</html>

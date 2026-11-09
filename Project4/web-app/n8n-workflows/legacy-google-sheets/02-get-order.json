@@ -1,0 +1,132 @@
+{
+  "name": "Cheer Cake - Get Order",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cheer-cake-get-order",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -640,
+        160
+      ],
+      "id": "95b7eddd-5ad4-4f38-925d-80117c36b1d1",
+      "name": "Webhook",
+      "webhookId": "e4c8183a-4e34-4c92-8c7d-0319f9496844"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU",
+          "mode": "list",
+          "cachedResultName": "cheer new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Orders",
+          "mode": "name"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -400,
+        160
+      ],
+      "id": "fca8bf9e-2e42-4d47-9d65-ae6cbac87f75",
+      "name": "Get rows from Orders",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQq3FtSHi",
+          "name": "sheetswork"
+        }
+      },
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const req = $('Webhook').first().json.body ?? {};\nconst code = String(req.orderCode ?? '').trim().toLowerCase();\nconst normalizePhone = value => { const digits = String(value ?? '').replace(/\\D/g, ''); return digits.length === 10 && /^1[0125]/.test(digits) ? `0${digits}` : digits; };\nconst phone = normalizePhone(req.phone);\nconst rows = $input.all().map(item => item.json);\nconst found = rows.find(row =>\n  String(row.orderCode ?? '').trim().toLowerCase() === code &&\n  normalizePhone(row.phone) === phone\n);\nif (!found) {\n  return [{ json: { success: false, message: 'لم يتم العثور على طلب مطابق لكود الطلب ورقم الموبايل.' } }];\n}\nreturn [{ json: { success: true, order: found } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        160
+      ],
+      "id": "5e16b1a3-2925-4a55-a291-334e7f14fe70",
+      "name": "Find order by code and phone"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        80,
+        160
+      ],
+      "id": "165cf16f-3c5b-4a43-9c51-8c4ffb8e6f66",
+      "name": "Return order response"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get rows from Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get rows from Orders": {
+      "main": [
+        [
+          {
+            "node": "Find order by code and phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find order by code and phone": {
+      "main": [
+        [
+          {
+            "node": "Return order response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e35269dc-0840-4bac-93ba-4eb9ac1849cd",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -1,0 +1,31 @@
+
+/* Styles الخاصة بصفحة تعديل الطلب */
+.edit-shell { width: min(100%, 980px); }
+.edit-page { align-items: flex-start; }
+.edit-page .shell { margin: auto; }
+.lookup-card, .edit-form { margin-bottom: 14px; }
+.edit-description { color: var(--muted); font-size: 12px; margin: -1px 0 13px; }
+.lookup-grid { align-items: end; }
+.lookup-actions { margin-top: 3px; }
+.edit-form-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.edit-form-heading h1 { font-size:18px; margin:0 0 6px; color:var(--purple-deep); }
+.edit-form-heading h1 span { color:var(--teal); font-family:ui-monospace, monospace; font-size:16px; }
+.edit-tag { display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px; background:var(--purple-soft); color:var(--purple-deep); font-size:10px; font-weight:800; white-space:nowrap; }
+#deliveryFields { width:100%; }
+.price-grid input[readonly] { background:#f8f5fb; font-weight:700; }
+.edit-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+.edit-actions .submit { flex:1; }
+.secondary-button { min-width:160px; }
+.edit-form [hidden], .lookup-card [hidden] { display:none !important; }
+@media (max-width:600px) {
+  .edit-form-heading { align-items:flex-start; flex-direction:column; }
+  .edit-actions { flex-direction:column; }
+  .edit-actions button { width:100%; }
+  .lookup-grid { grid-template-columns:minmax(0,1fr); }
+}
+
+.edit-image-preview { display:flex; flex-direction:column; align-items:flex-start; gap:10px; margin-top:12px; }
+.edit-image-preview img { display:block; max-width:min(100%, 320px); max-height:320px; object-fit:contain; border:1px solid var(--border, #e7dfe8); border-radius:12px; background:#fff; padding:6px; }
+#cakeImageError { color:#b42318; margin-top:6px; }
+
+#depositImageError { color:#b42318; margin-top:6px; }

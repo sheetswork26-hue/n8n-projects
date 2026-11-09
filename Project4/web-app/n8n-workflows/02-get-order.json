@@ -1,0 +1,206 @@
+{
+  "name": "Lozz Cake - Search Order in PostgreSQL",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "get-order",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7d1c52b4-f60c-4c67-91dd-4b03f8a66b11",
+      "name": "Search Order Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "4a8d0b1f-24d7-4d25-a3e1-cc4f4f6e21f0"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$input.first().json.body??{}; const orderCode=String(b.orderCode??'').trim(); const phone=String(b.phone??'').trim(); const digits=phone.replace(/\\\\D/g,''); if(!orderCode||!phone) return [{json:{valid:false,success:false,message:'من فضلك أدخل كود الطلب ورقم الموبايل.'}}]; if(digits.length<10||digits.length>13) return [{json:{valid:false,success:false,message:'رقم الموبايل غير صحيح.'}}]; return [{json:{valid:true,orderCode,phone}}];"
+      },
+      "id": "f12b65b9-9b4e-4e4d-91d2-cd6e2d0c11a2",
+      "name": "Validate Search Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bcdf85a7-71c0-46e4-92ad-4e0d25e2b7f2",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7a7bde66-f26f-4f1a-973f-25d6cb8e2b81",
+      "name": "Input Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH req AS (\n SELECT LOWER(BTRIM($1::text)) AS code,\n CASE\n  WHEN LENGTH(REGEXP_REPLACE(COALESCE($2::text,''), '\\D','','g'))=12\n   AND LEFT(REGEXP_REPLACE(COALESCE($2::text,''), '\\D','','g'),2)='20'\n   THEN '0'||SUBSTRING(REGEXP_REPLACE(COALESCE($2::text,''), '\\D','','g') FROM 3)\n  WHEN LENGTH(REGEXP_REPLACE(COALESCE($2::text,''), '\\D','','g'))=10\n   AND LEFT(REGEXP_REPLACE(COALESCE($2::text,''), '\\D','','g'),1)='1'\n   THEN '0'||REGEXP_REPLACE(COALESCE($2::text,''), '\\D','','g')\n  ELSE REGEXP_REPLACE(COALESCE($2::text,''), '\\D','','g')\n END AS phone\n),\nmatched AS (\n SELECT o.* FROM public.orders o CROSS JOIN req r\n WHERE LOWER(BTRIM(o.order_code))=r.code\n AND (\n  CASE\n   WHEN LENGTH(REGEXP_REPLACE(COALESCE(o.customer_phone,''), '\\D','','g'))=12\n    AND LEFT(REGEXP_REPLACE(COALESCE(o.customer_phone,''), '\\D','','g'),2)='20'\n    THEN '0'||SUBSTRING(REGEXP_REPLACE(COALESCE(o.customer_phone,''), '\\D','','g') FROM 3)\n   WHEN LENGTH(REGEXP_REPLACE(COALESCE(o.customer_phone,''), '\\D','','g'))=10\n    AND LEFT(REGEXP_REPLACE(COALESCE(o.customer_phone,''), '\\D','','g'),1)='1'\n    THEN '0'||REGEXP_REPLACE(COALESCE(o.customer_phone,''), '\\D','','g')\n   ELSE REGEXP_REPLACE(COALESCE(o.customer_phone,''), '\\D','','g')\n  END\n )=r.phone\n ORDER BY o.id DESC LIMIT 1\n),\na AS (\n SELECT order_id, JSONB_AGG(JSONB_BUILD_OBJECT(\n  'productId',product_id,'productName',product_name,'unit',unit,\n  'quantity',quantity,'unitPriceEGP',unit_price_egp,\n  'designExtraEGP',design_extra_egp,'totalEGP',total_egp\n ) ORDER BY id) AS items\n FROM public.order_addons WHERE order_id IN (SELECT id FROM matched) GROUP BY order_id\n),\ni AS (\n SELECT order_id, JSONB_AGG(JSONB_BUILD_OBJECT(\n  'id',id,'imageType',image_type,'fileName',file_name,'objectKey',object_key,\n  'mimeType',mime_type,'fileSizeBytes',file_size_bytes\n ) ORDER BY id) AS items\n FROM public.order_images WHERE order_id IN (SELECT id FROM matched)\n AND is_active=TRUE AND deleted_at IS NULL GROUP BY order_id\n)\nSELECT\n (o.id IS NOT NULL) AS success,\n CASE WHEN o.id IS NULL THEN 'لم يتم العثور على طلب مطابق لكود الطلب ورقم الموبايل.'\n ELSE 'تم العثور على الطلب.' END AS message,\n CASE WHEN o.id IS NULL THEN NULL ELSE JSONB_BUILD_OBJECT(\n 'id',o.id,'orderCode',o.order_code,'name',o.customer_name,'phone',o.customer_phone,\n 'moderatorName',o.moderator_name,'fulfillmentMethod',o.fulfillment_method,\n 'city',o.city,'area',o.area,'addressDetails',o.address_details,\n 'deliveryDate',o.delivery_date,'deliveryTimeFrom',o.delivery_time_from,\n 'deliveryTimeTo',o.delivery_time_to,'cakeType',o.cake_type,'cakeSize',o.cake_size,\n 'dimensions',o.dimensions,'numberOfTiers',o.number_of_tiers,'filling',o.filling,\n 'covering',o.covering,'details',o.details,'basePriceEGP',o.base_price_egp,\n 'cakeDesignExtraEGP',o.cake_design_extra_egp,'addOnsTotalEGP',o.addons_total_egp,\n 'addOns',COALESCE(a.items,'[]'::jsonb),'deliveryFeeEGP',o.delivery_fee_egp,\n 'discountType',o.discount_type,'discountInputValue',o.discount_input_value,\n 'discountAmountEGP',o.discount_amount_egp,'totalOrderEGP',o.total_order_egp,\n 'depositEGP',0,'remainingEGP',o.total_order_egp,\n 'orderSummary',o.order_summary,'submittedAt',o.submitted_at,\n 'createdAt',o.created_at,'updatedAt',o.updated_at,\n 'images',COALESCE(i.items,'[]'::jsonb),\n 'cakeImages',COALESCE((SELECT JSONB_AGG(x.value) FROM JSONB_ARRAY_ELEMENTS(COALESCE(i.items,'[]'::jsonb)) x(value) WHERE x.value->>'imageType'='cake'),'[]'::jsonb),\n 'depositImages',COALESCE((SELECT JSONB_AGG(x.value) FROM JSONB_ARRAY_ELEMENTS(COALESCE(i.items,'[]'::jsonb)) x(value) WHERE x.value->>'imageType'='deposit'),'[]'::jsonb)\n ) END AS \"order\"\nFROM (SELECT 1) seed LEFT JOIN matched o ON TRUE\nLEFT JOIN a ON a.order_id=o.id LEFT JOIN i ON i.order_id=o.id;",
+        "options": {
+          "queryReplacement": "={{ [$json.orderCode, $json.phone] }}"
+        }
+      },
+      "id": "b6e5d00c-cd67-4d99-91a6-7d7ec10a3f42",
+      "name": "Find Order in PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        960,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$input.first()?.json??{}; if(r.success!==true||!r.order) return [{json:{success:false,message:r.message||'لم يتم العثور على طلب مطابق لكود الطلب ورقم الموبايل.'}}]; return [{json:{success:true,message:r.message||'تم العثور على الطلب.',order:r.order}}];"
+      },
+      "id": "b8d731a4-8e2c-4c16-a83b-8f6e7d5f2c13",
+      "name": "Format Search Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "f9f50e7c-7c64-47a1-a25e-c6f7a7b1a4e9",
+      "name": "Return Search Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1440,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "4c91f20b-1f5b-48c7-a3a0-90d9a4c21b13",
+      "name": "Return Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        960,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Search Order Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Search Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Search Input": {
+      "main": [
+        [
+          {
+            "node": "Input Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Valid?": {
+      "main": [
+        [
+          {
+            "node": "Find Order in PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Order in PostgreSQL": {
+      "main": [
+        [
+          {
+            "node": "Format Search Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Search Result": {
+      "main": [
+        [
+          {
+            "node": "Return Search Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

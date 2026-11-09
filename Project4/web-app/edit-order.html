@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fff8f6">
+  <title>تشير كيك | تعديل طلب</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/edit-order.css">
+  <script type="module" src="js/edit-order.js"></script>
+</head>
+<body>
+  <main class="page edit-page">
+    <div class="shell edit-shell">
+      <header>
+        <div class="brand"><div class="brand-mark" aria-hidden="true">✿</div><div class="brand-name">Cheer <span>Cake</span></div></div>
+        <p class="subtitle">إدارة الطلبات وتعديل بيانات أوردر موجود</p>
+        <nav class="page-nav" aria-label="التنقل بين صفحات الطلبات">
+          <a class="page-nav-link" href="index.html">إنشاء أوردر جديد</a>
+          <a class="page-nav-link active" href="edit-order.html" aria-current="page">تعديل أوردر موجود</a>
+        </nav>
+      </header>
+
+      <section class="card lookup-card" aria-labelledby="lookupTitle">
+        <div class="section-title" id="lookupTitle">البحث عن الطلب</div>
+        <p class="edit-description">اكتب كود الطلب ورقم الموبايل المسجل فيه لعرض البيانات وتعديلها.</p>
+        <form id="lookupForm" class="grid lookup-grid" novalidate>
+          <div class="field">
+            <label for="lookupCode">كود الطلب <span class="req">*</span></label>
+            <input id="lookupCode" name="orderCode" autocomplete="off" placeholder="مثال: 485516-c" required dir="ltr">
+          </div>
+          <div class="field">
+            <label for="lookupPhone">رقم الموبايل المسجل <span class="req">*</span></label>
+            <input id="lookupPhone" name="phone" type="tel" inputmode="numeric" maxlength="11" placeholder="01XXXXXXXXX" required dir="ltr">
+          </div>
+          <div class="field full actions lookup-actions">
+            <button class="submit" id="lookupBtn" type="submit">بحث عن الطلب</button>
+          </div>
+        </form>
+        <p class="status" id="lookupStatus" role="status" aria-live="polite"></p>
+      </section>
+
+      <form id="editForm" class="card edit-form" hidden novalidate>
+        <div class="edit-form-heading">
+          <div>
+            <div class="section-title">بيانات الطلب</div>
+            <h1>تعديل الأوردر <span id="visibleOrderCode" dir="ltr"></span></h1>
+          </div>
+          <span class="edit-tag">تعديل طلب موجود</span>
+        </div>
+        <!-- بيانات مرجعية ثابتة للتحقق من هوية الطلب عند الحفظ؛ لا يحررها المستخدم -->
+        <input id="orderId" name="orderId" type="hidden">
+        <input id="orderCode" name="orderCode" type="hidden">
+        <input id="originalPhone" name="originalPhone" type="hidden">
+        <input id="submittedAt" name="submittedAt" type="hidden">
+
+        <div class="section-title gap-top">بيانات العميل</div>
+        <div class="grid">
+          <div class="field"><label for="name">الاسم بالكامل <span class="req">*</span></label><input id="name" name="name" required minlength="3"><p class="error" hidden></p></div>
+          <div class="field"><label for="phone">رقم الموبايل <span class="req">*</span></label><input id="phone" name="phone" type="tel" inputmode="numeric" maxlength="11" required dir="ltr"><p class="error" hidden></p></div>
+          <div class="field full"><label for="moderatorName">المودريتور <span class="req">*</span></label><select id="moderatorName" name="moderatorName" required><option value="">اختار المودريتور</option><option>فاطمة</option><option>امنية</option><option>اسراء</option><option>منار</option><option>بسنت</option><option>سما</option></select><p class="error" hidden></p></div>
+        </div>
+
+        <div class="section-title gap-top">طريقة الاستلام والعنوان</div>
+        <div class="grid">
+          <div class="field full"><label for="fulfillmentMethod">طريقة الاستلام <span class="req">*</span></label><select id="fulfillmentMethod" name="fulfillmentMethod"><option value="delivery">توصيل للعنوان</option><option value="pickup">استلام من مكان</option></select></div>
+          <div id="deliveryFields" class="field full">
+            <div class="grid">
+              <div class="field"><label for="city">المحافظة <span class="req">*</span></label><select id="city" name="city"><option value="">اختار المحافظة</option><option value="Cairo">القاهرة</option><option value="Giza">الجيزة</option></select><p class="error" hidden></p></div>
+              <div class="field"><label for="area">المنطقة <span class="req">*</span></label><select id="area" name="area" disabled><option value="">اختار المحافظة الأول</option></select><p class="error" hidden></p></div>
+              <div class="field full"><label for="addressDetails">العنوان بالتفصيل <span class="req">*</span></label><textarea id="addressDetails" name="addressDetails" minlength="10" placeholder="رقم العقار والدور والشقة وأقرب علامة مميزة"></textarea><p class="error" hidden></p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title gap-top">موعد التسليم</div>
+        <div class="grid">
+          <div class="field"><label for="deliveryDate">يوم التسليم <span class="req">*</span></label><input id="deliveryDate" name="deliveryDate" type="date" required><p class="error" hidden></p></div>
+          <div class="field"><label for="deliveryTimeFrom">وقت التسليم من <span class="req">*</span></label><select id="deliveryTimeFrom" name="deliveryTimeFrom" required></select><p class="error" hidden></p></div>
+          <div class="field" id="deliveryTimeToField"><label for="deliveryTimeTo">وقت التسليم إلى <span class="req">*</span></label><select id="deliveryTimeTo" name="deliveryTimeTo" required disabled></select><p class="error" hidden></p></div>
+          <p class="hint full">اختار فترة لا تقل عن ساعتين، أو «آخر معاد» لإلغاء وقت النهاية. النهايات متاحة حتى 8 مساءً.</p>
+        </div>
+
+        <div class="section-title gap-top">صورة المنتج</div>
+        <div class="grid">
+          <div class="field full">
+            <label for="cakeImage">صورة الكيكة <span class="req">*</span></label>
+            <input id="cakeImage" name="cakeImage" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+            <div id="cakeImagePreviewWrap" class="edit-image-preview" hidden><div id="cakeImageGallery" class="image-gallery"></div></div>
+            <p class="error" id="cakeImageError" hidden></p>
+            <p class="hint">لازم يكون فيه صورة واحدة للكيكة على الأقل بعد التعديل. تقدر تحتفظ بصورة قديمة أو تضيف صورة جديدة.</p>
+          </div>
+        </div>
+
+        <div class="section-title gap-top">صورة العربون</div>
+        <div class="grid">
+          <div class="field full">
+            <label for="depositImage">صورة إيصال العربون (اختياري)</label>
+            <input id="depositImage" name="depositImage" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+            <div id="depositImagePreviewWrap" class="edit-image-preview" hidden><div id="depositImageGallery" class="image-gallery"></div></div>
+            <p class="error" id="depositImageError" hidden></p>
+            <p class="hint">تقدر تختار أكتر من صورة وتحذف أي صورة قبل الحفظ. الصور الجديدة بتتبعت إلى n8n كملفات Binary منفصلة.</p>
+          </div>
+        </div>
+
+        <div class="section-title gap-top">تفاصيل الكيكة</div>
+        <div class="grid">
+          <div class="field"><label for="cakeType">نوع الكيكة <span class="req">*</span></label><select id="cakeType" name="cakeType" required><option value="">اختار نوع الكيكة</option><option value="single_tier">كيكة دور واحد</option><option value="two_tier">كيكة دورين</option><option value="three_tier">كيكة 3 أدوار</option><option value="rectangular_square">كيكة مستطيلة أو مربعة</option><option value="italian">كيكة إيطالي</option></select><p class="error" hidden></p></div>
+          <div class="field"><label for="cakeSize">الحجم <span class="req">*</span></label><select id="cakeSize" name="cakeSize" required disabled><option value="">اختار نوع الكيكة الأول</option></select><p class="error" hidden></p></div>
+          <div class="field"><label for="filling">الحشو <span class="req">*</span></label><select id="filling" name="filling" required><option value="vanilla">فانيليا</option><option value="chocolate">شوكولاتة</option><option value="half_and_half">نصف فانيليا ونصف شوكولاتة</option></select></div>
+          <div class="field"><label for="covering">التغطية <span class="req">*</span></label><select id="covering" name="covering" required><option value="sugar_paste">عجينة سكر</option><option value="cream">كريمة</option></select></div>
+          <div class="field full"><label for="details">تفاصيل إضافية</label><textarea id="details" name="details" placeholder="أي طلبات خاصة أو كتابة على الكيكة"></textarea></div>
+        </div>
+
+        <div class="section-title gap-top">إضافات مع التورتة 😍🍩🍪</div>
+        <div class="grid">
+          <div class="field full">
+            <p class="hint">السعر الأساسي لكل إضافة ثابت. لو التصميم محتاج تكلفة إضافية، اكتب الزيادة الاختيارية للصنف.</p>
+            <div id="addOnsList" class="addon-list"></div>
+            <button id="addAddonBtn" class="secondary-button" type="button">+ إضافة صنف</button>
+            <div class="addon-grand-total">إجمالي الإضافات: <strong id="addOnsTotalDisplay">0 جنيه</strong></div>
+          </div>
+        </div>
+
+        <div class="section-title gap-top">تفاصيل السعر</div>
+        <div class="grid price-grid">
+          <div class="field"><label for="basePriceEGP">السعر الأساسي للتورتة (ثابت)</label><input id="basePriceEGP" name="basePriceEGP" type="number" readonly></div>
+          <div class="field"><label for="cakeDesignExtraEGP">زيادة سعر التورتة بسبب التصميم (اختياري)</label><input id="cakeDesignExtraEGP" name="cakeDesignExtraEGP" type="number" min="0" step="0.01" value="0"></div>
+          <div class="field"><label for="addOnsTotalEGP">إجمالي الإضافات (جنيه)</label><input id="addOnsTotalEGP" name="addOnsTotalEGP" type="number" readonly></div>
+          <div class="field"><label for="deliveryFeeEGP">رسوم التوصيل (جنيه)</label><input id="deliveryFeeEGP" name="deliveryFeeEGP" type="number" readonly></div>
+          <div class="field"><label for="discountType">نوع الخصم</label><select id="discountType" name="discountType"><option value="none">بدون خصم</option><option value="percentage">خصم بنسبة مئوية (%)</option><option value="amount">خصم بمبلغ ثابت (جنيه)</option></select></div>
+          <div class="field"><label for="discountInputValue">قيمة الخصم</label><input id="discountInputValue" name="discountInputValue" type="number" min="0" step="0.01" value="0"></div>
+          <div class="field"><label for="discountAmountEGP">قيمة الخصم المحسوبة (جنيه)</label><input id="discountAmountEGP" name="discountAmountEGP" type="number" readonly></div>
+          <div class="field"><label for="totalOrderEGP">الإجمالي بعد الخصم (جنيه)</label><input id="totalOrderEGP" name="totalOrderEGP" type="number" readonly></div>
+          <div class="field"><label for="depositEGP">المبلغ المدفوع مقدمًا (جنيه)</label><input id="depositEGP" name="depositEGP" type="number" min="0" step="0.01" value="0"></div>
+          <div class="field"><label for="remainingEGP">المتبقي (جنيه)</label><input id="remainingEGP" name="remainingEGP" type="number" readonly></div>
+          <div class="field full"><label for="orderStatus">حالة الطلب</label><select id="orderStatus" name="orderStatus"><option value="قيد التأكيد">قيد التأكيد</option><option value="تم التأكيد">تم التأكيد</option><option value="ملغي">ملغي</option></select></div>
+        </div>
+
+        <div class="edit-actions">
+          <button class="submit" id="saveBtn" type="submit">حفظ التعديلات</button>
+          <button class="copy-button secondary-button" id="cancelBtn" type="button">إغلاق بيانات الطلب</button>
+        </div>
+        <p class="status" id="saveStatus" role="status" aria-live="polite"></p>
+      </form>
+      <p class="footer">تشير كيك · صفحة إدارة داخلية للطلبات</p>
+    </div>
+  </main>
+</body>
+</html>

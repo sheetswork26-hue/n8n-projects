@@ -1,0 +1,950 @@
+{
+  "name": "Cheer Cake - Update Order",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cheer-cake-update-order",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -640,
+        160
+      ],
+      "id": "cc931ad2-8550-43ab-b93d-5d4e1f0f1702",
+      "name": "Webhook",
+      "webhookId": "468b3d19-3065-4f14-95e0-fbf8947cba3f"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU",
+          "mode": "list",
+          "cachedResultName": "cheer new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Orders",
+          "mode": "name"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -440,
+        160
+      ],
+      "id": "d0cdb823-e785-4b45-8f65-0c11fcfa1411",
+      "name": "Get rows from Orders",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQq3FtSHi",
+          "name": "sheetswork"
+        }
+      },
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const req = $('Webhook').first().json.body ?? {};\nconst code = String(req.orderCode ?? '').trim().toLowerCase();\nconst normalizePhone = value => { const digits = String(value ?? '').replace(/\\D/g, ''); return digits.length === 10 && /^1[0125]/.test(digits) ? `0${digits}` : digits; };\nconst phone = normalizePhone(req.searchPhone ?? req.phone);\nconst rows = $input.all().map(item => item.json);\nconst found = rows.find(row =>\n  String(row.orderCode ?? '').trim().toLowerCase() === code &&\n  normalizePhone(row.phone) === phone\n);\nif (!found) return [{ json: { found: false, success: false, message: 'لم يتم العثور على طلب مطابق. لم يتم حفظ أي تعديل.' } }];\nconst months = {\n  'يناير':['January','يناير'],'فبراير':['February','فبراير'],'مارس':['March','مارس'],\n  'أبريل':['April','أبريل'],'ابريل':['April','أبريل'],'مايو':['May','مايو'],'يونيو':['June','يونيو'],\n  'يوليو':['July','يوليو'],'أغسطس':['August','أغسطس'],'اغسطس':['August','أغسطس'],\n  'سبتمبر':['September','سبتمبر'],'أكتوبر':['October','أكتوبر'],'اكتوبر':['October','أكتوبر'],\n  'نوفمبر':['November','نوفمبر'],'ديسمبر':['December','ديسمبر']\n};\nconst getMonth = dateText => {\n  const text = String(dateText ?? '');\n  const month = text.match(/يناير|فبراير|مارس|أبريل|ابريل|مايو|يونيو|يوليو|أغسطس|اغسطس|سبتمبر|أكتوبر|اكتوبر|نوفمبر|ديسمبر/)?.[0];\n  if (month) return { name: months[month][0], arabic: months[month][1] };\n  const iso = text.match(/^\\d{4}-(\\d{2})-\\d{2}$/);\n  const isoMonths = {'01':['January','يناير'],'02':['February','فبراير'],'03':['March','مارس'],'04':['April','أبريل'],'05':['May','مايو'],'06':['June','يونيو'],'07':['July','يوليو'],'08':['August','أغسطس'],'09':['September','سبتمبر'],'10':['October','أكتوبر'],'11':['November','نوفمبر'],'12':['December','ديسمبر']};\n  return iso ? {name: isoMonths[iso[1]][0], arabic: isoMonths[iso[1]][1]} : {name:'',arabic:''};\n};\nconst oldMonth = getMonth(found.deliveryDate);\nconst newMonth = getMonth(req.deliveryDate);\nif (!newMonth.name) return [{ json: { found: false, success: false, message: 'تاريخ التسليم الجديد غير صالح.' } }];\nreturn [{ json: { found: true, success: true, orderCode: code, oldMonth: oldMonth.name, oldMonthArabic: oldMonth.arabic, newMonth: newMonth.name, newMonthArabic: newMonth.arabic } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        160
+      ],
+      "id": "d6fd080f-6b8c-4d4c-82da-d23a8fe32ced",
+      "name": "Verify current order code and phone"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3883b582-f225-4bbd-9bc6-40ee62b5adcb",
+              "leftValue": "={{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -80,
+        160
+      ],
+      "id": "75a99b4f-60eb-4951-8cb2-d24a0ef06693",
+      "name": "Order matched?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU",
+          "mode": "list",
+          "cachedResultName": "cheer new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Orders",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "orderCode": "={{ $('Webhook').first().json.body.orderCode }}",
+            "name": "={{ $('Webhook').first().json.body.name ?? '' }}",
+            "phone": "={{ \"'\" + String($('Webhook').first().json.body.phone || '') }}",
+            "moderatorName": "={{ $('Webhook').first().json.body.moderatorName ?? '' }}",
+            "fulfillmentMethod": "={{ $('Webhook').first().json.body.fulfillmentMethod ?? '' }}",
+            "city": "={{ $('Webhook').first().json.body.city ?? '' }}",
+            "area": "={{ $('Webhook').first().json.body.area ?? '' }}",
+            "addressDetails": "={{ $('Webhook').first().json.body.addressDetails ?? '' }}",
+            "deliveryDate": "={{ $('Webhook').first().json.body.deliveryDate ?? '' }}",
+            "deliveryTimeFrom": "={{ $('Webhook').first().json.body.deliveryTimeFrom ?? '' }}",
+            "deliveryTimeTo": "={{ $('Webhook').first().json.body.deliveryTimeTo ?? '' }}",
+            "cakeType": "={{ $('Webhook').first().json.body.cakeType ?? '' }}",
+            "cakeSize": "={{ $('Webhook').first().json.body.cakeSize ?? '' }}",
+            "dimensions": "={{ $('Webhook').first().json.body.dimensions ?? '' }}",
+            "numberOfTiers": "={{ Number($('Webhook').first().json.body.numberOfTiers || 0) }}",
+            "basePriceEGP": "={{ Number($('Webhook').first().json.body.basePriceEGP || 0) }}",
+            "cakeDesignExtraEGP": "={{ Number($('Webhook').first().json.body.cakeDesignExtraEGP || 0) }}",
+            "deliveryFeeEGP": "={{ Number($('Webhook').first().json.body.deliveryFeeEGP || 0) }}",
+            "discountType": "={{ $('Webhook').first().json.body.discountType ?? '' }}",
+            "discountInputValue": "={{ Number($('Webhook').first().json.body.discountInputValue || 0) }}",
+            "discountAmountEGP": "={{ Number($('Webhook').first().json.body.discountAmountEGP || 0) }}",
+            "totalOrderEGP": "={{ Number($('Webhook').first().json.body.totalOrderEGP || 0) }}",
+            "depositEGP": "={{ Number($('Webhook').first().json.body.depositEGP || 0) }}",
+            "remainingEGP": "={{ Number($('Webhook').first().json.body.remainingEGP || 0) }}",
+            "filling": "={{ $('Webhook').first().json.body.filling ?? '' }}",
+            "covering": "={{ $('Webhook').first().json.body.covering ?? '' }}",
+            "details": "={{ $('Webhook').first().json.body.details ?? '' }}",
+            "orderStatus": "={{ ['تم التأكيد', 'قيد التأكيد', 'ملغي'].includes($('Webhook').first().json.body.orderStatus) ? $('Webhook').first().json.body.orderStatus : 'قيد التأكيد' }}",
+            "submittedAt": "={{ $('Webhook').first().json.body.submittedAt || '' }}",
+            "lastUpdatedAt": "={{ $now.toISO() }}",
+            "addOnsTotalEGP": "={{ Number($('Webhook').first().json.body.addOnsTotalEGP || 0) }}",
+            "addOnsJSON": "={{ $('Webhook').first().json.body.addOnsJSON || '[]' }}",
+            "cakeImageNamesJSON": "={{ $('Webhook').first().json.body.cakeImageNamesJSON || '[]' }}",
+            "cakeImageCount": "={{ Number($('Webhook').first().json.body.cakeImageCount || 0) }}",
+            "depositImageNamesJSON": "={{ $('Webhook').first().json.body.depositImageNamesJSON || '[]' }}",
+            "depositImageCount": "={{ Number($('Webhook').first().json.body.depositImageCount || 0) }}"
+          },
+          "matchingColumns": [
+            "orderCode"
+          ],
+          "schema": [
+            {
+              "id": "orderCode",
+              "displayName": "orderCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "moderatorName",
+              "displayName": "moderatorName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "fulfillmentMethod",
+              "displayName": "fulfillmentMethod",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "area",
+              "displayName": "area",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "addressDetails",
+              "displayName": "addressDetails",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "deliveryDate",
+              "displayName": "deliveryDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "deliveryTimeFrom",
+              "displayName": "deliveryTimeFrom",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "deliveryTimeTo",
+              "displayName": "deliveryTimeTo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "cakeType",
+              "displayName": "cakeType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "cakeSize",
+              "displayName": "cakeSize",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "dimensions",
+              "displayName": "dimensions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "numberOfTiers",
+              "displayName": "numberOfTiers",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "basePriceEGP",
+              "displayName": "basePriceEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "cakeDesignExtraEGP",
+              "displayName": "cakeDesignExtraEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deliveryFeeEGP",
+              "displayName": "deliveryFeeEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "discountType",
+              "displayName": "discountType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "discountInputValue",
+              "displayName": "discountInputValue",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "discountAmountEGP",
+              "displayName": "discountAmountEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "totalOrderEGP",
+              "displayName": "totalOrderEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "depositEGP",
+              "displayName": "depositEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "remainingEGP",
+              "displayName": "remainingEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "filling",
+              "displayName": "filling",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "covering",
+              "displayName": "covering",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "details",
+              "displayName": "details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "orderStatus",
+              "displayName": "orderStatus",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "submittedAt",
+              "displayName": "submittedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "lastUpdatedAt",
+              "displayName": "lastUpdatedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "addOnsTotalEGP",
+              "displayName": "addOnsTotalEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "addOnsJSON",
+              "displayName": "addOnsJSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "cakeImageNamesJSON",
+              "displayName": "cakeImageNamesJSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "cakeImageCount",
+              "displayName": "cakeImageCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "depositImageNamesJSON",
+              "displayName": "depositImageNamesJSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "depositImageCount",
+              "displayName": "depositImageCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        160,
+        -16
+      ],
+      "id": "e58108c3-eaf7-48c2-a3bc-3c88b7f71a79",
+      "name": "Update existing order row",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQq3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, orderCode: $('Webhook').first().json.body.orderCode, message: 'تم تحديث الطلب ومزامنة الملخص الشهري بنجاح' } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "6b250afd-9f92-46f1-96c2-407c4dd47702",
+      "name": "Return update success"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        160,
+        288
+      ],
+      "id": "66bf3a19-cc6c-4931-a87c-6a9a6681e6b6",
+      "name": "Return not found"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU",
+          "mode": "list",
+          "cachedResultName": "cheer new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $('Verify current order code and phone').first().json.newMonth }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "orderCode": "={{ $('Webhook').first().json.body.orderCode }}",
+            "moderator": "={{ $('Webhook').first().json.body.moderatorName ?? '' }}",
+            "date": "={{ $('Webhook').first().json.body.deliveryDate ?? '' }}",
+            "total": "={{ Number($json.body.basePriceEGP || 0) + Number($json.body.cakeDesignExtraEGP || 0) + Number($json.body.addOnsTotalEGP || 0) + Number($json.body.deliveryFeeEGP || 0) }}",
+            "discount": "={{ Number($('Webhook').first().json.body.discountAmountEGP || 0) }}",
+            "deposit": "={{ Number($('Webhook').first().json.body.depositEGP || 0) }}",
+            "remain": "={{ Number($('Webhook').first().json.body.remainingEGP || 0) }}",
+            "confirm or not": "={{ ['تم التأكيد', 'قيد التأكيد', 'ملغي'].includes($('Webhook').first().json.body.orderStatus) ? $('Webhook').first().json.body.orderStatus : 'قيد التأكيد' }}",
+            "submited at": "={{ $('Webhook').first().json.body.submittedAt || '' }}"
+          },
+          "matchingColumns": [
+            "orderCode"
+          ],
+          "schema": [
+            {
+              "id": "orderCode",
+              "displayName": "orderCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "moderator",
+              "displayName": "moderator",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "total",
+              "displayName": "total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "discount",
+              "displayName": "discount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "deposit",
+              "displayName": "deposit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "remain",
+              "displayName": "remain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "confirm or not",
+              "displayName": "confirm or not",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "submited at",
+              "displayName": "submited at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        400,
+        -16
+      ],
+      "id": "7f58ae18-47a8-44e6-9c7a-8c8b7fdc568e",
+      "name": "Sync current monthly summary",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQq3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f25a89eb-e8ab-41e3-baf8-6836c643d63f",
+              "leftValue": "={{ $('Verify current order code and phone').first().json.oldMonth }}",
+              "rightValue": "={{ $('Verify current order code and phone').first().json.newMonth }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        -16
+      ],
+      "id": "8dfe276a-4dc1-4f1e-9908-9c4b993d2c22",
+      "name": "Was delivery month changed?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU",
+          "mode": "list",
+          "cachedResultName": "cheer new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $('Verify current order code and phone').first().json.oldMonth }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "orderCode": "={{ $('Webhook').first().json.body.orderCode }}",
+            "confirm or not": "={{ ['تم التأكيد', 'قيد التأكيد', 'ملغي'].includes($('Webhook').first().json.body.orderStatus) ? $('Webhook').first().json.body.orderStatus : 'قيد التأكيد' }}"
+          },
+          "matchingColumns": [
+            "orderCode"
+          ],
+          "schema": [
+            {
+              "id": "orderCode",
+              "displayName": "orderCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "confirm or not",
+              "displayName": "confirm or not",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        880,
+        -128
+      ],
+      "id": "fbc1305a-166a-4f3c-9b44-1b8d3b2f775d",
+      "name": "Mark old monthly row as moved",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQq3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, orderCode: $('Webhook').first().json.body.orderCode, message: 'تم تحديث الطلب ومزامنة الملخص الشهري بنجاح' } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        80
+      ],
+      "id": "1d3ccab0-8413-46ed-a9ce-4dd12f9558b2",
+      "name": "Return update success same month"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get rows from Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get rows from Orders": {
+      "main": [
+        [
+          {
+            "node": "Verify current order code and phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify current order code and phone": {
+      "main": [
+        [
+          {
+            "node": "Order matched?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order matched?": {
+      "main": [
+        [
+          {
+            "node": "Update existing order row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return not found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update existing order row": {
+      "main": [
+        [
+          {
+            "node": "Sync current monthly summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync current monthly summary": {
+      "main": [
+        [
+          {
+            "node": "Was delivery month changed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Was delivery month changed?": {
+      "main": [
+        [
+          {
+            "node": "Mark old monthly row as moved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return update success same month",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark old monthly row as moved": {
+      "main": [
+        [
+          {
+            "node": "Return update success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "871d8daa-359b-42b5-a21e-ac4291e1ad60",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

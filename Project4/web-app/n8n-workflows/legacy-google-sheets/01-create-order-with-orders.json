@@ -1,0 +1,634 @@
+{
+  "name": "Cheer Cake - New Order + Orders Store",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "cheer-cake-order",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -304,
+        96
+      ],
+      "id": "75ae380c-40b8-4b75-929c-b23266e02fb8",
+      "name": "Webhook",
+      "webhookId": "67d63c57-0450-469d-8ab1-b71903b1cdde"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU",
+          "mode": "list",
+          "cachedResultName": "cheer new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{\n  (() => {\n    const dateText = String($json.body.deliveryDate ?? '');\n    const match = dateText.match(/يناير|فبراير|مارس|أبريل|ابريل|مايو|يونيو|يوليو|أغسطس|اغسطس|سبتمبر|أكتوبر|اكتوبر|نوفمبر|ديسمبر/);\n    const months = {'يناير':'January','فبراير':'February','مارس':'March','أبريل':'April','ابريل':'April','مايو':'May','يونيو':'June','يوليو':'July','أغسطس':'August','اغسطس':'August','سبتمبر':'September','أكتوبر':'October','اكتوبر':'October','نوفمبر':'November','ديسمبر':'December'};\n    return months[match?.[0]] ?? 'UNKNOWN_MONTH';\n  })()\n}}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "orderCode": "={{ $json.body.orderCode }}",
+            "moderator": "={{ $json.body.moderatorName }}",
+            "date": "={{ $json.body.deliveryDate }}",
+            "total": "={{ Number($json.body.basePriceEGP || 0) + Number($json.body.cakeDesignExtraEGP || 0) + Number($json.body.addOnsTotalEGP || 0) + Number($json.body.deliveryFeeEGP || 0) }}",
+            "discount": "={{ $json.body.discountAmountEGP }}",
+            "deposit": "={{ Number($json.body.depositEGP || 0) }}",
+            "remain": "={{ Math.max(0, Number($json.body.totalOrderEGP || 0) - Number($json.body.depositEGP || 0)) }}",
+            "confirm or not": "not",
+            "submited at": "={{ $now.format('MM-dd hh:mm a') }}"
+          },
+          "matchingColumns": [
+            "orderCode"
+          ],
+          "schema": [
+            {
+              "id": "orderCode",
+              "displayName": "orderCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "moderator",
+              "displayName": "moderator",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "total",
+              "displayName": "total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "discount",
+              "displayName": "discount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "deposit",
+              "displayName": "deposit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "remain",
+              "displayName": "remain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "confirm or not",
+              "displayName": "confirm or not",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "submited at",
+              "displayName": "submited at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        0,
+        100
+      ],
+      "id": "629ffcff-58b2-4dd5-89a4-a9a4eb55e3e7",
+      "name": "Append monthly summary",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQq3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU",
+          "mode": "list",
+          "cachedResultName": "cheer new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Orders",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "orderCode": "={{ $('Webhook').first().json.body.orderCode ?? '' }}",
+            "name": "={{ $('Webhook').first().json.body.name ?? '' }}",
+            "phone": "={{ \"'\" + String($('Webhook').first().json.body.phone || '') }}",
+            "moderatorName": "={{ $('Webhook').first().json.body.moderatorName ?? '' }}",
+            "fulfillmentMethod": "={{ $('Webhook').first().json.body.fulfillmentMethod ?? '' }}",
+            "city": "={{ $('Webhook').first().json.body.city ?? '' }}",
+            "area": "={{ $('Webhook').first().json.body.area ?? '' }}",
+            "addressDetails": "={{ $('Webhook').first().json.body.addressDetails ?? '' }}",
+            "deliveryDate": "={{ $('Webhook').first().json.body.deliveryDate ?? '' }}",
+            "deliveryTimeFrom": "={{ $('Webhook').first().json.body.deliveryTimeFrom ?? '' }}",
+            "deliveryTimeTo": "={{ $('Webhook').first().json.body.deliveryTimeTo ?? '' }}",
+            "cakeType": "={{ $('Webhook').first().json.body.cakeType ?? '' }}",
+            "cakeSize": "={{ $('Webhook').first().json.body.cakeSize ?? '' }}",
+            "dimensions": "={{ $('Webhook').first().json.body.dimensions ?? '' }}",
+            "numberOfTiers": "={{ Number($('Webhook').first().json.body.numberOfTiers || 0) }}",
+            "basePriceEGP": "={{ Number($('Webhook').first().json.body.basePriceEGP || 0) }}",
+            "cakeDesignExtraEGP": "={{ Number($('Webhook').first().json.body.cakeDesignExtraEGP || 0) }}",
+            "deliveryFeeEGP": "={{ Number($('Webhook').first().json.body.deliveryFeeEGP || 0) }}",
+            "discountType": "={{ $('Webhook').first().json.body.discountType ?? '' }}",
+            "discountInputValue": "={{ Number($('Webhook').first().json.body.discountInputValue || 0) }}",
+            "discountAmountEGP": "={{ Number($('Webhook').first().json.body.discountAmountEGP || 0) }}",
+            "totalOrderEGP": "={{ Number($('Webhook').first().json.body.totalOrderEGP || 0) }}",
+            "depositEGP": "={{ Number($('Webhook').first().json.body.depositEGP || 0) }}",
+            "remainingEGP": "={{ Math.max(0, Number($('Webhook').first().json.body.totalOrderEGP || 0) - Number($('Webhook').first().json.body.depositEGP || 0)) }}",
+            "filling": "={{ $('Webhook').first().json.body.filling ?? '' }}",
+            "covering": "={{ $('Webhook').first().json.body.covering ?? '' }}",
+            "details": "={{ $('Webhook').first().json.body.details ?? '' }}",
+            "orderStatus": "={{ $('Webhook').first().json.body.orderStatus || 'قيد التأكيد' }}",
+            "submittedAt": "={{ $('Webhook').first().json.body.submittedAt || $now.toISO() }}",
+            "lastUpdatedAt": "={{ $now.toISO() }}",
+            "addOnsTotalEGP": "={{ Number($('Webhook').first().json.body.addOnsTotalEGP || 0) }}",
+            "addOnsJSON": "={{ $('Webhook').first().json.body.addOnsJSON || '[]' }}",
+            "cakeImageNamesJSON": "={{ $('Webhook').first().json.body.cakeImageNamesJSON || '[]' }}",
+            "cakeImageCount": "={{ Number($('Webhook').first().json.body.cakeImageCount || 0) }}",
+            "depositImageNamesJSON": "={{ $('Webhook').first().json.body.depositImageNamesJSON || '[]' }}",
+            "depositImageCount": "={{ Number($('Webhook').first().json.body.depositImageCount || 0) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "orderCode",
+              "displayName": "orderCode",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "moderatorName",
+              "displayName": "moderatorName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "fulfillmentMethod",
+              "displayName": "fulfillmentMethod",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "city",
+              "displayName": "city",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "area",
+              "displayName": "area",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "addressDetails",
+              "displayName": "addressDetails",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "deliveryDate",
+              "displayName": "deliveryDate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "deliveryTimeFrom",
+              "displayName": "deliveryTimeFrom",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "deliveryTimeTo",
+              "displayName": "deliveryTimeTo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "cakeType",
+              "displayName": "cakeType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "cakeSize",
+              "displayName": "cakeSize",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "dimensions",
+              "displayName": "dimensions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "numberOfTiers",
+              "displayName": "numberOfTiers",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "basePriceEGP",
+              "displayName": "basePriceEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "cakeDesignExtraEGP",
+              "displayName": "cakeDesignExtraEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deliveryFeeEGP",
+              "displayName": "deliveryFeeEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "discountType",
+              "displayName": "discountType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "discountInputValue",
+              "displayName": "discountInputValue",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "discountAmountEGP",
+              "displayName": "discountAmountEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "totalOrderEGP",
+              "displayName": "totalOrderEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "depositEGP",
+              "displayName": "depositEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "remainingEGP",
+              "displayName": "remainingEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "filling",
+              "displayName": "filling",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "covering",
+              "displayName": "covering",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "details",
+              "displayName": "details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "orderStatus",
+              "displayName": "orderStatus",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "submittedAt",
+              "displayName": "submittedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "lastUpdatedAt",
+              "displayName": "lastUpdatedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "addOnsTotalEGP",
+              "displayName": "addOnsTotalEGP",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "addOnsJSON",
+              "displayName": "addOnsJSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "cakeImageNamesJSON",
+              "displayName": "cakeImageNamesJSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "cakeImageCount",
+              "displayName": "cakeImageCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "depositImageNamesJSON",
+              "displayName": "depositImageNamesJSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "depositImageCount",
+              "displayName": "depositImageCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        300,
+        100
+      ],
+      "id": "78b379a3-8758-4e9f-b0d8-4af5a8d45121",
+      "name": "Save full order in Orders",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQq3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Append monthly summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append monthly summary": {
+      "main": [
+        [
+          {
+            "node": "Save full order in Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b3a7c22d-f398-46ac-b2c8-80bfae243c12",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
