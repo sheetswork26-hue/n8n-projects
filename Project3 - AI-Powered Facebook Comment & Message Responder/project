@@ -1,0 +1,965 @@
+{
+  "name": "Auto-Comment and message Responder copy",
+  "nodes": [
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "path": "meta-page-events",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -736,
+        -304
+      ],
+      "id": "2af4a884-c5ed-471f-8272-4e243726d7da",
+      "name": "Webhook",
+      "webhookId": "446659c7-a337-4f83-836b-462acf0a4695"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "57a2ec9b-d8e9-496f-92a6-9a8924fec6d9",
+              "leftValue": "={{ $json.query[\"hub.verify_token\"] }}",
+              "rightValue": "648ad538-300f-4ee6-baa4-e9d6aedeb630",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -512,
+        -400
+      ],
+      "id": "c345439a-73e5-4a64-bd2a-0159a0d8bb7a",
+      "name": "IF - Verify Meta"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.query[\"hub.challenge\"] }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -288,
+        -496
+      ],
+      "id": "7a95eb0d-cfea-426f-a8d5-442ca05c943e",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "=Forbidden",
+        "options": {
+          "responseCode": 403,
+          "responseHeaders": {
+            "entries": []
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -288,
+        -304
+      ],
+      "id": "b8372b86-b63d-4c0a-85fd-5eecd8dffe2e",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        960,
+        -416
+      ],
+      "id": "51a3b417-96f8-4350-9d74-62f5cae63da5",
+      "name": "Acknowledge Meta Event"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message_text }}",
+        "options": {
+          "systemMessage": "أنت مساعد خدمة عملاء لصفحة Sakr Mobile Deals على Facebook.\n\nقواعد المحادثة:\n- تحدث باللهجة المصرية بطريقة ودودة ومحترمة.\n- اجعل ردودك مختصرة وواضحة وطبيعية.\n- افهم احتياج العميل قبل اقتراح المنتجات.\n- لا تخترع أسعارًا أو مواصفات أو عروضًا أو معلومات غير متوفرة لديك.\n- إذا سأل العميل عن منتج أو سعر غير موجود في المعلومات المتاحة، أخبره أنك ستحتاج إلى التأكد من التفاصيل.\n- لا تطلب بيانات شخصية غير ضرورية.\n- لا تكرر الترحيب في كل رسالة.\n- لا تذكر أنك ذكاء اصطناعي.\n- أجب مباشرة عن سؤال العميل."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        384,
+        -528
+      ],
+      "id": "153ad129-406c-478b-8e7a-3e1761b85881",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        464,
+        -304
+      ],
+      "id": "4fdef4b7-9aed-4146-9317-f3a8d2523b23",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "Z2AUYY7KbPm3yZay",
+          "name": "Groq account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v27.0/1390638384128512/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"recipient\": {\n    \"id\": \"{{ $('Extract Messenger Data').item.json.psid }}\"\n  },\n  \"messaging_type\": \"RESPONSE\",\n  \"message\": {\n    \"text\": \"{{ $json.output }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        736,
+        -416
+      ],
+      "id": "c82ccda8-a62a-4f06-bf06-fdb24d3996dc",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "0YcTpPJW02yUFrah",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d39b798f-0579-43ac-a045-c35ab9a6efed",
+              "name": "psid",
+              "value": "={{ $json.body.entry[0].messaging[0].sender.id }}",
+              "type": "string"
+            },
+            {
+              "id": "0ba42510-757a-425f-80da-ea54ea8e3c45",
+              "name": "message_text",
+              "value": "={{ $json.body.entry[0].messaging[0].message.text }}",
+              "type": "string"
+            },
+            {
+              "id": "249ec858-d4d5-44ee-8021-16b08e7748cd",
+              "name": "message_id",
+              "value": "={{ $json.body.entry[0].messaging[0].message.mid }}",
+              "type": "string"
+            },
+            {
+              "id": "e44e09c6-2b8d-45e2-8692-e1adef5e56cb",
+              "name": "page_id",
+              "value": "={{ $json.body.entry[0].id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        160,
+        -416
+      ],
+      "id": "3a519775-cd31-4032-b90a-c13329285981",
+      "name": "Extract Messenger Data"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ !!$json.body.entry?.[0]?.messaging?.[0]?.message?.text }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "9e2d04bb-cd7c-4666-a481-c17198d68a4b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "message"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2117306a-ec1e-4c0f-a06e-4282365f2dfd",
+                    "leftValue": "={{ $json.body.entry?.[0]?.changes?.[0]?.value?.item === 'comment' }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "comment"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -64,
+        -208
+      ],
+      "id": "3ec9ab42-6f57-48b7-bbdc-3d4c3da35bc7",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $('Webhook').all();\nconst results = [];\nconst seen = new Set();\nfor (const input of items) {\n  const root = input.json.body || input.json;\n\n  // Meta sends Page events inside entry[]\n  const entries = root.entry || [];\n\n  for (const entry of entries) {\n    const pageId = String(entry.id || '');\n    const changes = entry.changes || [];\n\n    for (const change of changes) {\n      const v = change.value || {};\n\n      const commentId = String(v.comment_id || '');\n      const postId = String(v.post_id || '');\n      const fromId = String(v.from?.id || '');\n      const message = String(v.message || '').trim();\n\n      if (v.item !== 'comment' || v.verb !== 'add') continue;\n      if (!commentId || !postId || !message) continue;\n\n      // Ignore comments made by the page itself\n      if (fromId === pageId) continue;\n\n      const uniqueKey = `${pageId}_${commentId}`;\n      if (seen.has(uniqueKey)) continue;\n      seen.add(uniqueKey);\n\n      results.push({\n        json: {\n          pageId,\n          commentId,\n          postId,\n          parentId: v.parent_id || null,\n          commenterId: fromId,\n          commenterName: v.from?.name || 'عميلنا',\n          commentText: message,\n          createdTime: v.created_time,\n          postPermalink: v.post?.permalink_url || null,\n         \n          rawPayload: entry\n        }\n      });\n    }\n  }\n}\n\nreturn results;\n"
+      },
+      "id": "3f3eedfc-0ff1-4bbd-b44e-ccfa7817143c",
+      "name": "Extract New Comments",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v24.0/{{ $('Extract New Comments').item.json.commentId }}/comments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ 'مرحباً ' + $('Extract New Comments').item.json.commenterName + '، شكراً لاهتمامك! تم إرسال التفاصيل، يرجى مراجعة رسائلك.' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "80d0e887-d58f-4705-8fab-5f4815e06df3",
+      "name": "Reply to Facebook Comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1184,
+        48
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "0YcTpPJW02yUFrah",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        960,
+        -48
+      ],
+      "id": "9b62a356-6669-4aa4-888b-1751237a31ff",
+      "name": "No Operation, do nothing1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "\nINSERT INTO facebook_comments (\n    comment_id,\n    page_id,\n    post_id,\n    parent_id,\n    commenter_id,\n    commenter_name,\n    message,\n    comment_created_at,\n    post_permalink,\n    raw_payload\n)\nVALUES (\n    $1, $2, $3, $4, $5,\n    $6, $7,\n    to_timestamp($8::double precision),\n    $9,\n    $10::jsonb\n)\nON CONFLICT (page_id, comment_id) DO NOTHING\nRETURNING id, comment_id;\n",
+        "options": {
+          "queryReplacement": "=\n{{ [\n  $json.body.entry[0].changes[0].value.comment_id,\n  $json.body.entry[0].id,\n  $json.body.entry[0].changes[0].value.post_id,\n  $json.body.entry[0].changes[0].value.parent_id,\n  $json.body.entry[0].changes[0].value.from.id,\n  $json.body.entry[0].changes[0].value.from.name,\n  $json.body.entry[0].changes[0].value.message,\n  $json.body.entry[0].changes[0].value.created_time,\n  $json.body.entry[0].changes[0].value.post.permalink_url,\n  JSON.stringify($json.body.entry[0])\n] }}\n"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        448,
+        -128
+      ],
+      "id": "6d251c40-89d6-4f2f-81ff-23e7e4ae8fc0",
+      "name": "Execute a SQL query2",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "20d6e4a2-32c8-45a9-865e-56c220d107cc",
+              "leftValue": "={{ $json.body.entry[0].changes[0].value.from.id }}",
+              "rightValue": "1390638384128512",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "31a87b6b-a3b8-47ce-ab20-b4eef7a19818",
+              "leftValue": "={{ $json.body.entry[0].changes[0].value.verb }}",
+              "rightValue": "add",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        160,
+        -48
+      ],
+      "id": "e7b08371-5f05-41c3-bd19-6db8c6b1a776",
+      "name": "not the page1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "60c75a37-ffea-46dd-8053-ef7a362df9f2",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        736,
+        -128
+      ],
+      "id": "f69a16cd-23fe-4c52-99ed-6159eddafe57",
+      "name": "duplicated comment1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE facebook_comments\nSET\n    is_replied = TRUE,\n    reply_message = $1\nWHERE comment_id = $2\n  AND post_id = $3\nRETURNING id, comment_id, is_replied, reply_message;\n",
+        "options": {
+          "queryReplacement": "={{ [   $('Message a model1').item.json.output[0].content[0].text,$('Extract New Comments').item.json.commentId   ,  $('Extract New Comments').item.json.postId ]  }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1408,
+        48
+      ],
+      "id": "b6680bcf-73bc-4980-867b-0db5fcff5352",
+      "name": "Execute a SQL query3",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      },
+      "disabled": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        -752
+      ],
+      "id": "225f0b2e-e0bb-4248-8fe2-1f221d3c1d1c",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "Ziad Sakr",
+        "remoteJid": "+201067461252",
+        "messageText": "=Erro workflow : {{ $json.workflow.name }}\nError Node : {{ $json.execution.lastNodeExecuted }}\nError message : {{ $json.execution.error.message }}\nError url : {{ $json.execution.url }}",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api-english.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        -752
+      ],
+      "id": "c96b8539-c63e-4bd2-9486-2e7360c5244c",
+      "name": "Send text",
+      "credentials": {
+        "evolutionApi": {
+          "id": "HL4zWcKgz5OuqLcu",
+          "name": "Evolution account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v27.0/1390638384128512/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"recipient\": {\n    \"comment_id\": \"{{ $('Extract New Comments').item.json.commentId }}\"\n  },\n  \"message\": {\n    \"text\": \"أهلاً بيك ❤️ شكراً على تعليقك! نورت صفحتنا.\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1184,
+        240
+      ],
+      "id": "6483fec1-639d-441f-b294-b7d946d75b07",
+      "name": "message reply",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "0YcTpPJW02yUFrah",
+          "name": "Bearer Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"status\": \"received\"\n}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1632,
+        48
+      ],
+      "id": "ea276fd2-7d0f-4311-81c7-e8255b36c59c",
+      "name": "Acknowledge Meta Event1"
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "binaryData": true,
+        "dataPropertyName": "meta_signature_calculated"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        -112
+      ],
+      "id": "73a2157d-01eb-4ee7-bc52-f076b3addbc7",
+      "name": "Crypto",
+      "credentials": {
+        "crypto": {
+          "id": "PxbZbH2ExX3zTa8E",
+          "name": "Crypto fac-test app"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3cb3e8c3-e6d2-467a-a3bd-5a890c8b34b4",
+              "leftValue": "={{ 'sha256=' + $json.meta_signature_calculated }}",
+              "rightValue": "={{ $json.headers['x-hub-signature-256'] || '' }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -288,
+        -112
+      ],
+      "id": "cc294ab7-43d4-48f7-bec6-cacd00182c6e",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Invalid signature",
+        "options": {
+          "responseCode": 401,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -64,
+        -16
+      ],
+      "id": "830fdebd-b7a7-41f6-a84a-66d3a194e71f",
+      "name": "Reject Invalid Meta Signature"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "cloudfare.ziad-n8n.cfd",
+            "user-agent": "Webhooks/1.0 (https://fb.me/webhooks)",
+            "content-length": "734",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "2a03:2880:30ff:45::",
+            "cf-ipcountry": "SE",
+            "cf-ray": "a5756bfe3d599118-FRA",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-warp-tag-id": "c31204da-85d7-41ea-8f15-cbecf203675e",
+            "connection": "keep-alive",
+            "content-type": "application/json",
+            "x-forwarded-for": "2a03:2880:30ff:45::",
+            "x-forwarded-proto": "https",
+            "x-hub-signature": "sha1=08f140570b9ff598d2740badf8be91f4c49d224b",
+            "x-hub-signature-256": "sha256=8baa427042bafa0315ac446de9248fb780ba4f0302a62356dce49bac558f55c8"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "entry": [
+              {
+                "id": "1390638384128512",
+                "time": 1794149758,
+                "changes": [
+                  {
+                    "value": {
+                      "from": {
+                        "id": "29385167194428824",
+                        "name": "Ziad Sakr"
+                      },
+                      "post": {
+                        "status_type": "added_photos",
+                        "is_published": true,
+                        "updated_time": "2026-11-08T14:55:56+0000",
+                        "permalink_url": "https://www.facebook.com/photo/?fbid=122107336125487261&set=a.122107330113487261",
+                        "promotion_status": "ineligible",
+                        "id": "1390638384128512_122107336125487261"
+                      },
+                      "message": "تفاصيل",
+                      "post_id": "1390638384128512_122107336125487261",
+                      "comment_id": "122107336125487261_1821767868952202",
+                      "created_time": 1794149756,
+                      "item": "comment",
+                      "parent_id": "29123922797273503_122107336125487261",
+                      "verb": "add"
+                    },
+                    "field": "feed"
+                  }
+                ]
+              }
+            ],
+            "object": "page"
+          },
+          "webhookUrl": "https://cloudfare.ziad-n8n.cfd/webhook/meta-page-events",
+          "executionMode": "production"
+        },
+        "binary": {
+          "data": {
+            "data": "eyJlbnRyeSI6IFt7ImlkIjogIjEzOTA2MzgzODQxMjg1MTIiLCAidGltZSI6IDE3OTQxNDk3NTgsICJjaGFuZ2VzIjogW3sidmFsdWUiOiB7ImZyb20iOiB7ImlkIjogIjI5Mzg1MTY3MTk0NDI4ODI0IiwgIm5hbWUiOiAiWmlhZCBTYWtyIn0sICJwb3N0IjogeyJzdGF0dXNfdHlwZSI6ICJhZGRlZF9waG90b3MiLCAiaXNfcHVibGlzaGVkIjogdHJ1ZSwgInVwZGF0ZWRfdGltZSI6ICIyMDI2LTExLTA4VDE0OjU1OjU2KzAwMDAiLCAicGVybWFsaW5rX3VybCI6ICJodHRwczovL3d3dy5mYWNlYm9vay5jb20vcGhvdG8vP2ZiaWQ9MTIyMTA3MzM2MTI1NDg3MjYxJnNldD1hLjEyMjEwNzMzMDExMzQ4NzI2MSIsICJwcm9tb3Rpb25fc3RhdHVzIjogImluZWxpZ2libGUiLCAiaWQiOiAiMTM5MDYzODM4NDEyODUxMl8xMjIxMDczMzYxMjU0ODcyNjEifSwgIm1lc3NhZ2UiOiAiXHUwNjJhXHUwNjQxXHUwNjI3XHUwNjM1XHUwNjRhXHUwNjQ0IiwgInBvc3RfaWQiOiAiMTM5MDYzODM4NDEyODUxMl8xMjIxMDczMzYxMjU0ODcyNjEiLCAiY29tbWVudF9pZCI6ICIxMjIxMDczMzYxMjU0ODcyNjFfMTgyMTc2Nzg2ODk1MjIwMiIsICJjcmVhdGVkX3RpbWUiOiAxNzk0MTQ5NzU2LCAiaXRlbSI6ICJjb21tZW50IiwgInBhcmVudF9pZCI6ICIyOTEyMzkyMjc5NzI3MzUwM18xMjIxMDczMzYxMjU0ODcyNjEiLCAidmVyYiI6ICJhZGQifSwgImZpZWxkIjogImZlZWQifV19XSwgIm9iamVjdCI6ICJwYWdlIn0=",
+            "mimeType": "application/json"
+          }
+        },
+        "pairedItem": {
+          "item": 0,
+          "input": 1
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "IF - Verify Meta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Crypto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Verify Meta": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Meta Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Messenger Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Extract Messenger Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "not the page1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract New Comments": {
+      "main": [
+        [
+          {
+            "node": "Reply to Facebook Comment",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "message reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply to Facebook Comment": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query2": {
+      "main": [
+        [
+          {
+            "node": "duplicated comment1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "not the page1": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "duplicated comment1": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract New Comments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query3": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Meta Event1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crypto": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject Invalid Meta Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9254a756-b16e-45ac-b5ec-68a65f3d2c52",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0ab75c86239f609d9fbd1ee140caa2f304d88df720d9eb674bf2d29fe31ae784"
+  },
+  "nodeGroups": [],
+  "id": "Ac3jJnhjUNM3o4jx",
+  "tags": []
+}
