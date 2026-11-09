@@ -1,0 +1,1339 @@
+{
+  "name": "Send telegram , create sheet (first)",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "\n// =====================================\n// 1. Get source data\n// =====================================\n\nconst sheetcode = $('code').first().json['كود'];\nconst order = $('get order details').first().json;\nconst groups = $('get groups id').all();\nconst imageRows = $('get images key').all();\n\nconst R2_PUBLIC_URL =\n  'https://pub-d3ad27f3192a413db6127f958dec3be5.r2.dev';\n\nconst summary = order.order_summary || '';\n\nconst ifData = $('if record exist').isExecuted\n  ? $('if record exist').first()?.json ?? {}\n  : {};\n\n// إضافة كود الشيت في أول ملخص الطلب\nconst fullSummary = `🔖 كود الشيت: ${sheetcode}\\n${summary}`;\n\n\n// =====================================\n// 2. Filter valid images\n// =====================================\n\nconst validImages = imageRows\n  .map(item => item.json)\n  .filter(img =>\n    img.is_active === true &&\n    !img.deleted_at &&\n    img.object_key\n  );\n\n// Cake images only\nconst cakeImages = validImages.filter(\n  img => img.image_type === 'cake'\n);\n\n// All images for delivery\nconst deliveryImages = validImages;\n\n\n// =====================================\n// 3. Build cake caption\n// =====================================\n\nconst lines = summary.split(/\\r?\\n/);\n\nconst cakeDetails = lines.filter(line =>\n  /^(نوع الكيكة والحجم|الحشو|التغطية|تفاصيل إضافية|التوابع):/.test(\n    line.trim()\n  )\n);\n\nconst formattedDate =\n  $('Code in JavaScript1').first().json.formatted_date;\n\n\n// =====================================\n// 4. Format delivery time\n// =====================================\n\nconst deliveryTimeFrom = order.delivery_time_from;\nconst deliveryTimeTo = order.delivery_time_to;\n\nconst isLastTime = [\n  'last',\n  'اخر معاد',\n  'آخر معاد'\n].includes(String(deliveryTimeFrom || '').trim());\n\nconst deliveryTime = isLastTime\n  ? 'اخر معاد'\n  : [\n      deliveryTimeFrom,\n      deliveryTimeTo\n    ]\n      .filter(time =>\n        time !== null &&\n        time !== undefined &&\n        String(time).trim() !== ''\n      )\n      .join(' - ');\n\n\n// =====================================\n// 5. Build cake caption\n// =====================================\n\nconst cakeCaption = [\n  '🎂 تفاصيل طلب الكيك',\n  '',\n  ...cakeDetails,\n  '',\n  `📅 يوم التسليم: ${formattedDate}`,\n  `⏰ وقت التسليم: ${deliveryTime || 'غير محدد'}`\n].join('\\n');\n\n\n// =====================================\n// 6. Build Telegram media\n// =====================================\n\nfunction buildMedia(images, caption) {\n  return images.map((img, index) => ({\n    type: 'photo',\n    media: `${R2_PUBLIC_URL}/${img.object_key}`,\n    ...(index === 0 ? { caption } : {})\n  }));\n}\n\n\n// =====================================\n// 7. Prepare separate requests\n// =====================================\n\nconst requests = [];\n\nfor (const groupItem of groups) {\n\n  const group = groupItem.json;\n\n  const groupName = String(group.groupName || '');\n\n  const isCakeGroup = groupName.includes('كيك');\n  const isDeliveryGroup = groupName.includes('توصيل');\n\n  if (!isCakeGroup && !isDeliveryGroup) {\n    continue;\n  }\n\n  const selectedImages = isCakeGroup\n    ? cakeImages\n    : deliveryImages;\n\n  if (selectedImages.length === 0) {\n    throw new Error(\n      `No images found for group: ${groupName}`\n    );\n  }\n\n  const cakeCaptionWithCode = [\n    `🔖 كود الشيت: ${sheetcode}`,\n    '',\n    cakeCaption\n  ].join('\\n');\n\n  const caption = isCakeGroup\n    ? cakeCaptionWithCode\n    : fullSummary;\n\n  requests.push({\n    json: {\n      chat_id: String(group.groupId),\n      media: buildMedia(selectedImages, caption),\n      group_type: isCakeGroup ? 'cake' : 'delivery'\n    }\n  });\n}\n\nreturn requests;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        -896
+      ],
+      "id": "ab25540d-0b19-4bea-8c6b-749e51eb4c5d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/botYOUR_TELEGRAM_BOT_TOKEN/sendMediaGroup",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3824,
+        -896
+      ],
+      "id": "ba5cca25-2f26-4c02-81f9-27fb6c8b049d",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst weekdays = [\n  'الأحد',\n  'الاثنين',\n  'الثلاثاء',\n  'الأربعاء',\n  'الخميس',\n  'الجمعة',\n  'السبت'\n];\n\nreturn items.map(item => {\n  const [year, month, day] = item.json.delivery_date\n    .split('-')\n    .map(Number);\n\n  const date = new Date(Date.UTC(year, month - 1, day));\n\n  item.json.formatted_date =\n    `${weekdays[date.getUTCDay()]} ${day}/${month}`;\n\n  return item;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -48,
+        -1008
+      ],
+      "id": "970e7ca7-8582-4d9e-91cf-2284ca95f3b8",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU",
+          "mode": "list",
+          "cachedResultName": "cheer new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 838440637,
+          "mode": "list",
+          "cachedResultName": "Sheet4",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit#gid=838440637"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "groupName",
+              "lookupValue": "={{ $('Code in JavaScript1').item.json.formatted_date }} توصيل"
+            },
+            {
+              "lookupColumn": "groupName",
+              "lookupValue": "={{ $('Code in JavaScript1').item.json.formatted_date }} كيك"
+            }
+          ]
+        },
+        "combineFilters": "OR",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3200,
+        -896
+      ],
+      "id": "8e09c677-4014-40d8-bcb1-c3b182bb8af9",
+      "name": "get groups id",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQ8q3FtSHi",
+          "name": "sheetswork"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "order_images",
+          "mode": "list",
+          "cachedResultName": "order_images"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "order_id",
+              "value": "={{ $('Code in JavaScript1').item.json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        3056,
+        -896
+      ],
+      "id": "948e3fc7-59ab-4ed1-82bd-ec55541a2f82",
+      "name": "get images key",
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "orders",
+          "mode": "list",
+          "cachedResultName": "orders"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "order_code",
+              "value": "={{ $json.body.code }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -272,
+        -1008
+      ],
+      "id": "57039228-79b1-44cc-80c3-4ffe26adb7aa",
+      "name": "get order details",
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "15d66f15-7a48-48f5-aeb3-175f2d90e74a",
+              "leftValue": "={{ $json.row_number }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3376,
+        -896
+      ],
+      "id": "3e5d44d2-7b0c-47a5-85fd-f47fedc6c760",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "path": "send-messages",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -496,
+        -1008
+      ],
+      "id": "81799448-7b70-4bf9-996b-b309d5877ff0",
+      "name": "send-messages",
+      "webhookId": "433448a6-29ae-42eb-be54-c32fb5b02c33"
+    },
+    {
+      "parameters": {
+        "url": "https://cloudfare.ziad-n8n.cfd/webhook/create-group",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ $('Code in JavaScript1').item.json.formatted_date }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1024,
+        -1312
+      ],
+      "id": "fb046815-d257-4fbe-959e-634de42a0ac6",
+      "name": "create telegram group",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// ==========================================\n// 1. Get Telegram Responses\n// ==========================================\nconst responses = $input.all();\n\n// ==========================================\n// 2. Get Order Details\n// ==========================================\nconst order = $('get order details').first().json;\nconst orderId = Number(order.id);\n\nif (!orderId) {\n  throw new Error('Order ID is missing');\n}\n\n// ==========================================\n// 3. Process Telegram Responses\n// ==========================================\nconst rows = [];\n\nfor (const response of responses) {\n\n  const result = response.json.result;\n\n  if (!Array.isArray(result) || result.length === 0) {\n    throw new Error('Invalid or empty Telegram response');\n  }\n\n  // Get group information\n  const firstMessage = result[0];\n  const chatId = String(firstMessage.chat.id);\n  const chatTitle = firstMessage.chat.title || '';\n\n  // Identify group type using Telegram group title\n  let groupType;\n\n  if (chatTitle.includes('كيك')) {\n    groupType = 'cake';\n  } else if (chatTitle.includes('توصيل')) {\n    groupType = 'delivery';\n  } else {\n    throw new Error(\n      `Unknown group type. Chat title: ${chatTitle}`\n    );\n  }\n\n  // Extract all message IDs\n  for (const message of result) {\n\n    rows.push({\n      json: {\n        order_id: orderId,\n        telegram_chat_id: String(message.chat.id),\n        telegram_message_id: Number(message.message_id),\n        group_type: groupType\n      }\n    });\n\n  }\n}\n\n// ==========================================\n// 4. Return PostgreSQL Records\n// ==========================================\nreturn rows;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4048,
+        -896
+      ],
+      "id": "c0eb9a5d-7e8a-4f11-ae98-1a6ff53d23ec",
+      "name": "Code in JavaScript4"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.order_telegram_messages (\n    order_id,\n    telegram_chat_id,\n    telegram_message_id,\n    message_type\n)\nVALUES ($1, $2, $3, $4)\nRETURNING *;",
+        "options": {
+          "queryReplacement": "={{ [   $json.order_id,   $json.telegram_chat_id,   $json.telegram_message_id,    $json.group_type] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        4272,
+        -896
+      ],
+      "id": "f0a92321-7c0f-4c34-b6b7-116ca822c8d9",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1rdfzYcMTerHh1Bm9ncO61JyPyrfpIipdQggyYkTa-jY:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=\n{\n  \"requests\": [\n    {\n      \"duplicateSheet\": {\n        \"sourceSheetId\": 1182601382,\n        \"newSheetName\": \"{{ $('Code in JavaScript1').first().json.formatted_date }}\"\n      }\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1024,
+        -1120
+      ],
+      "id": "811c331a-6e1f-4f66-a7cf-2a0057efe6fd",
+      "name": "create sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQ8q3FtSHi",
+          "name": "sheetswork"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1rdfzYcMTerHh1Bm9ncO61JyPyrfpIipdQggyYkTa-jY",
+          "mode": "list",
+          "cachedResultName": "خط السير",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rdfzYcMTerHh1Bm9ncO61JyPyrfpIipdQggyYkTa-jY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Code in JavaScript1').item.json.formatted_date }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1808,
+        -752
+      ],
+      "id": "05356311-18aa-44d5-b8d2-a24d1b93b97c",
+      "name": "Get row(s) in sheet1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQ8q3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d2d6943a-a7e4-4127-a94b-a57188fd8f44",
+              "leftValue": "={{ $json.old_sheet_name }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1488,
+        -896
+      ],
+      "id": "4c913494-eac3-4af0-b897-c1787c406413",
+      "name": "if record exist"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1rdfzYcMTerHh1Bm9ncO61JyPyrfpIipdQggyYkTa-jY",
+          "mode": "list",
+          "cachedResultName": "خط السير",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rdfzYcMTerHh1Bm9ncO61JyPyrfpIipdQggyYkTa-jY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Code in JavaScript1').item.json.formatted_date }}"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "كود التخزين",
+              "lookupValue": "={{ $json['كود التخزين'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2464,
+        -1072
+      ],
+      "id": "34995ba9-2ef7-421e-96b9-4cc320ca011e",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQ8q3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1f4545fa-14b1-4cfd-aa72-ff1ebf92d730",
+              "name": "كود",
+              "value": "={{ $json['كود'] ?? $('Append or update row in sheet').item.json['كود']}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2864,
+        -896
+      ],
+      "id": "d87c2d1f-57bc-4f0e-be82-29c491b1a0d3",
+      "name": "code"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1rdfzYcMTerHh1Bm9ncO61JyPyrfpIipdQggyYkTa-jY",
+          "mode": "list",
+          "cachedResultName": "خط السير",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rdfzYcMTerHh1Bm9ncO61JyPyrfpIipdQggyYkTa-jY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Code in JavaScript1').item.json.formatted_date }}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "كود": "={{ $json.orderCode }}",
+            "المنطقة": "={{ $json.city ?? $json.fulfillment_method }}",
+            "العنوان": "={{ $json.area }} - {{ $json.address_details }}",
+            "باقي": "={{ $json.remaining_egp }}",
+            "المعاد": "={{ $json.delivery_time_to }} - {{ $json.delivery_time_from }}",
+            "تفاصيل": "={{ $json.details }}",
+            "كود التخزين": "={{ $json.order_code }}"
+          },
+          "matchingColumns": [
+            "كود التخزين"
+          ],
+          "schema": [
+            {
+              "id": "كود",
+              "displayName": "كود",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "المنطقة",
+              "displayName": "المنطقة",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "العنوان",
+              "displayName": "العنوان",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "باقي",
+              "displayName": "باقي",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "المعاد",
+              "displayName": "المعاد",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "تفاصيل",
+              "displayName": "تفاصيل",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "كود التخزين",
+              "displayName": "كود التخزين",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2256,
+        -752
+      ],
+      "id": "664a9462-d91a-4442-8a89-92bc84279e5f",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQ8q3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.order_delivery_sheets (\n    order_id,\n    order_code,\n    sheet_name,\n    sheet_id,\n    row_number\n)\nSELECT\n    o.id,\n    o.order_code,\n    $2,\n    $3::BIGINT,\n    $4::INTEGER\nFROM public.orders o\nWHERE o.order_code = $1\n\nON CONFLICT (order_id)\nDO UPDATE SET\n    order_code = EXCLUDED.order_code,\n    sheet_name = EXCLUDED.sheet_name,\n    sheet_id = EXCLUDED.sheet_id,\n    row_number = EXCLUDED.row_number\n\nRETURNING *;",
+        "options": {
+          "queryReplacement": "={{\n[\n  $('Append or update row in sheet').first().json['كود التخزين'],\n  $json.sheet_name,\n  $json.sheet_id,\n  $('Get row(s) in sheet1').isExecuted &&  $('Get row(s) in sheet1').first().json.row_number != null\n    ? $('Get row(s) in sheet1').first().json.row_number\n    : 2\n]\n}}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2624,
+        -752
+      ],
+      "id": "b2c38437-06c6-4f48-99cf-99e2cf2e3e76",
+      "name": "Execute a SQL query2",
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\n\nconst order = $('Code in JavaScript1').first().json;\n\n// استخراج اليوم من تاريخ الأوردر\n// مثال: 2026-11-11 → 11\nconst orderDate = String(order.delivery_date).trim();\nconst day = orderDate.split('-')[2];\n\n// Prefix مثال: L11\nconst prefix = `L${day}`;\n\nlet lastOrder = 0;\n\n// البحث من آخر صف إلى أول صف\nfor (let i = rows.length - 1; i >= 0; i--) {\n  const code = String(rows[i].json['كود'] || '').trim();\n\n  const match = code.match(/^L(\\d{2})(\\d{2})$/);\n\n  if (match && match[1] === day) {\n    lastOrder = Number(match[2]);\n    break;\n  }\n}\n\n// زيادة الترتيب\nconst nextOrder = String(lastOrder + 1).padStart(2, '0');\n\nconst orderCode = `${prefix}${nextOrder}`;\n\nreturn [\n  {\n    json: {\n      orderCode,\n      ...order\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        -752
+      ],
+      "id": "0386558e-c6a8-4c8e-a807-e969d39a15d0",
+      "name": "create code"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1rdfzYcMTerHh1Bm9ncO61JyPyrfpIipdQggyYkTa-jY",
+          "mode": "list",
+          "cachedResultName": "خط السير",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1rdfzYcMTerHh1Bm9ncO61JyPyrfpIipdQggyYkTa-jY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $('Code in JavaScript1').item.json.formatted_date }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "كود التخزين": "={{ $('Code in JavaScript1').item.json.order_code }}",
+            "المنطقة": "={{ $('Code in JavaScript1').item.json.city ?? $('Code in JavaScript1').item.json.fulfillment_method}}",
+            "العنوان": "={{ $('Code in JavaScript1').item.json.area ?? \"\"}} - {{ $('Code in JavaScript1').item.json.address_details ?? \"\" }}",
+            "باقي": "={{ $('Code in JavaScript1').item.json.remaining_egp }}",
+            "المعاد": "={{ $('Code in JavaScript1').item.json.delivery_time_from }} - {{ $('Code in JavaScript1').item.json.delivery_time_to ?? \"\"}}",
+            "تفاصيل": "={{ $('Code in JavaScript1').item.json.details }}"
+          },
+          "matchingColumns": [
+            "كود التخزين"
+          ],
+          "schema": [
+            {
+              "id": "كود",
+              "displayName": "كود",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "المنطقة",
+              "displayName": "المنطقة",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "العنوان",
+              "displayName": "العنوان",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "باقي",
+              "displayName": "باقي",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "المعاد",
+              "displayName": "المعاد",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "تفاصيل",
+              "displayName": "تفاصيل",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "كود التخزين",
+              "displayName": "كود التخزين",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2192,
+        -1072
+      ],
+      "id": "703a6049-6f69-4006-be54-32e019978067",
+      "name": "update record",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQ8q3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2f0e8cac-127a-483f-9eb9-2b099220ab57",
+              "leftValue": "={{ $('Code in JavaScript1').item.json.formatted_date }}",
+              "rightValue": "={{ $json.old_sheet_name }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1696,
+        -1056
+      ],
+      "id": "e6198136-24b1-4223-b965-540b74735866",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    o.id AS order_id,\n    o.order_code,\n    o.delivery_date,\n    o.delivery_time_from,\n    o.delivery_time_to,\n    o.order_status,\n\n    ods.sheet_name AS old_sheet_name,\n    ods.sheet_id AS old_sheet_id,\n    ods.row_number AS old_row_number\n\nFROM public.orders o\n\nLEFT JOIN public.order_delivery_sheets ods\n    ON ods.order_id = o.id\n\nWHERE o.order_code = $1;",
+        "options": {
+          "queryReplacement": "={{ $('Code in JavaScript1').item.json.order_code }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1232,
+        -896
+      ],
+      "id": "2d30e9ec-b2a2-4d40-bf9e-efb4d1f5429b",
+      "name": "get delivery data",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1rdfzYcMTerHh1Bm9ncO61JyPyrfpIipdQggyYkTa-jY:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    requests: [\n      {\n        repeatCell: {\n          range: {\n            sheetId: Number($json.old_sheet_id),\n            startRowIndex: Number($json.old_row_number) - 1,\n            endRowIndex: Number($json.old_row_number),\n            startColumnIndex: 0,\n            endColumnIndex: 7\n          },\n          cell: {\n            userEnteredFormat: {\n              backgroundColor: {\n                red: 1,\n                green:0,\n                blue: 0\n              }\n            }\n          },\n          fields: \"userEnteredFormat.backgroundColor\"\n        }\n      },\n      {\n        updateCells: {\n          range: {\n            sheetId: Number($json.old_sheet_id),\n            startRowIndex: Number($json.old_row_number) - 1,\n            endRowIndex: Number($json.old_row_number),\n            startColumnIndex: 4,\n            endColumnIndex: 5\n          },\n          rows: [\n            {\n              values: [\n                {\n                  userEnteredValue: {\n                    stringValue: `تم النقل إلى ${$('Code in JavaScript1').first().json.formatted_date}`\n                  }\n                }\n              ]\n            }\n          ],\n          fields: \"userEnteredValue\"\n        }\n      }\n    ]\n  }\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1936,
+        -976
+      ],
+      "id": "31564479-cd33-4f99-a26e-d51c2e9fa8ef",
+      "name": "HTTP Request2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQ8q3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    id,\n    sheet_name,\n    sheet_id\nFROM public.delivery_sheets\nWHERE sheet_name = $1\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ $('Code in JavaScript1').first().json.formatted_date }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        400,
+        -1008
+      ],
+      "id": "8cfab11c-6fa4-4439-8bbf-cf32e451e4ac",
+      "name": "Execute a SQL query1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b3915f34-c3b1-4d01-981a-57596f6f8cff",
+              "leftValue": "={{ $json.sheet_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        640,
+        -1120
+      ],
+      "id": "872e31f1-6448-4469-81cd-edd7a674c08a",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO public.delivery_sheets (\n    sheet_name,\n    sheet_id\n)\nVALUES (\n    $1,\n    $2\n)\nON CONFLICT (sheet_name)\nDO UPDATE SET\n    sheet_id = EXCLUDED.sheet_id\nRETURNING *;",
+        "options": {
+          "queryReplacement": "={{ $('Code in JavaScript1').first().json.formatted_date }} , {{ $('create sheet').first().json.replies[0].duplicateSheet.properties.sheetId }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1328,
+        -1120
+      ],
+      "id": "3ff2719a-69d8-40ac-bd27-028e1a7604e8",
+      "name": "Execute a SQL query3",
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    id,\n    sheet_name,\n    sheet_id\nFROM public.delivery_sheets\nWHERE sheet_name = $1\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ $('Code in JavaScript1').first().json.formatted_date }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2416,
+        -752
+      ],
+      "id": "780541c4-bd66-4494-8cfb-d004a149b461",
+      "name": "Execute a SQL query5",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "853bc1a6-5cb7-404f-9013-d19a14abf9c9",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "asd",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        640,
+        -1296
+      ],
+      "id": "ac71918c-25f5-4880-bddf-5fea891503f7",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    g.id,\n    g.group_name,\n    g.telegram_chat_id,\n    g.group_link,\n    (g.id IS NOT NULL) AS group_exists\nFROM (\n    SELECT $1::VARCHAR AS target_group\n) AS q\nLEFT JOIN public.telegram_groups g\n    ON g.group_name = q.target_group\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [   $('Code in JavaScript1').first().json.formatted_date +   (     $('Code in JavaScript1').first().json.fulfillment_method === 'delivery'       ? ' توصيل'       : ' كيك'   ) ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        400,
+        -1296
+      ],
+      "id": "7adcd0c5-d960-4ad7-bbf9-940394003441",
+      "name": "Execute a SQL query4",
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "send-messages": [
+      {
+        "json": {
+          "headers": {
+            "host": "cloudfare.ziad-n8n.cfd",
+            "user-agent": "n8n",
+            "content-length": "19",
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "156.210.1.105",
+            "cf-ipcountry": "EG",
+            "cf-ray": "a546098608885321-MRS",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-warp-tag-id": "c31204da-85d7-41ea-8f15-cbecf203675e",
+            "connection": "keep-alive",
+            "content-type": "application/json",
+            "x-forwarded-for": "156.210.1.105",
+            "x-forwarded-proto": "https"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "code": "556387-c"
+          },
+          "webhookUrl": "https://cloudfare.ziad-n8n.cfd/webhook/send-messages",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Execute a SQL query4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get groups id": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get images key": {
+      "main": [
+        [
+          {
+            "node": "get groups id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get order details": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "send-messages": {
+      "main": [
+        [
+          {
+            "node": "get order details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create telegram group": {
+      "main": [
+        []
+      ]
+    },
+    "create sheet": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet1": {
+      "main": [
+        [
+          {
+            "node": "create code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if record exist": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get row(s) in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "code": {
+      "main": [
+        [
+          {
+            "node": "get images key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query2": {
+      "main": [
+        [
+          {
+            "node": "code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create code": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update record": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "update record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get delivery data": {
+      "main": [
+        [
+          {
+            "node": "if record exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query1": {
+      "main": [
+        [
+          {
+            "node": "get delivery data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "create sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query5": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "create telegram group",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Execute a SQL query4": {
+      "main": [
+        [
+          {
+            "node": "If3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "cd53f6d1-ea76-40ef-9ffc-1ce157c82af2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0ab75c86239f609d9fbd1ee140caa2f304d88df720d9eb674bf2d29fe31ae784"
+  },
+  "nodeGroups": [],
+  "id": "1Vym5uSnPTwMDRlj",
+  "tags": []
+}

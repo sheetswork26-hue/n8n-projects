@@ -1,0 +1,846 @@
+{
+  "name": "add order",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "create-order",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        576,
+        -432
+      ],
+      "id": "bf65c8b8-5cc6-48af-a9d1-bf3b13087a76",
+      "name": "add order",
+      "webhookId": "67d63c57-0450-469d-8ab1-b71903b1cdde"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst body = item.json.body ?? {};\n\nconst required = [\n  'orderCode', 'name', 'phone', 'moderatorName',\n  'fulfillmentMethod', 'deliveryDate', 'deliveryTimeFrom',\n  'cakeType', 'cakeSize'\n];\n\nfor (const field of required) {\n  if (body[field] === undefined || body[field] === null || String(body[field]).trim() === '') {\n    throw new Error(`Missing required field: ${field}`);\n  }\n}\n\nconst numericFields = [\n  'numberOfTiers',\n  'basePriceEGP',\n  'cakeDesignExtraEGP',\n  'addOnsTotalEGP',\n  'deliveryFeeEGP',\n  'discountInputValue',\n  'discountAmountEGP',\n  'totalOrderEGP'\n];\n\nconst order = { ...body };\n\nfor (const field of numericFields) {\n  const value = order[field];\n  if (value === undefined || value === null || value === '') {\n    order[field] = 0;\n    continue;\n  }\n\n  const parsed = Number(value);\n  if (!Number.isFinite(parsed)) {\n    throw new Error(`Invalid numeric value: ${field}`);\n  }\n  order[field] = parsed;\n}\n\nfor (const field of ['dimensions', 'city', 'area', 'addressDetails', 'deliveryTimeTo', 'details']) {\n  if (order[field] === '') order[field] = null;\n}\n\nif (typeof order.addOns === 'string') {\n  try {\n    order.addOns = JSON.parse(order.addOns || '[]');\n  } catch {\n    throw new Error('The addOns field contains invalid JSON');\n  }\n}\nif (!Array.isArray(order.addOns)) {\n  throw new Error('The addOns field must be an array');\n}\n\nfor (const [index, addon] of order.addOns.entries()) {\n  if (!addon.productId || !addon.productName || !addon.unit) {\n    throw new Error(`Invalid add-on at position ${index + 1}`);\n  }\n  for (const key of ['quantity', 'unitPriceEGP', 'designExtraEGP', 'totalEGP']) {\n    const value = Number(addon[key] ?? 0);\n    if (!Number.isFinite(value)) {\n      throw new Error(`Invalid add-on ${key} at position ${index + 1}`);\n    }\n    addon[key] = value;\n  }\n}\n\nif (!['delivery', 'pickup'].includes(order.fulfillmentMethod)) {\n  throw new Error('fulfillmentMethod must be delivery or pickup');\n}\nif (!['none', 'percentage', 'amount'].includes(order.discountType)) {\n  throw new Error('discountType must be none, percentage or amount');\n}\n\nreturn [{\n  json: order,\n  binary: item.binary ?? {}\n}];"
+      },
+      "id": "2cc3e5dc-5dd0-4309-a7ce-12db1263bd6e",
+      "name": "Normalize Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "\nWITH input AS (\n  SELECT\n    CASE\n      WHEN jsonb_typeof($1::jsonb) = 'array'\n        THEN $1::jsonb -> 0\n      ELSE $1::jsonb\n    END AS d\n),\n\ninserted_order AS (\n  INSERT INTO public.orders (\n    order_code,\n    customer_name,\n    customer_phone,\n    moderator_name,\n    fulfillment_method,\n    city,\n    area,\n    address_details,\n    delivery_date,\n    delivery_time_from,\n    delivery_time_to,\n    cake_type,\n    cake_size,\n    dimensions,\n    number_of_tiers,\n    filling,\n    covering,\n    details,\n    base_price_egp,\n    cake_design_extra_egp,\n    addons_total_egp,\n    delivery_fee_egp,\n    discount_type,\n    discount_input_value,\n    discount_amount_egp,\n    total_order_egp,\n    deposit_egp,\n    remaining_egp,\n    order_summary,\n    order_status,\n    submitted_at\n  )\n\n  SELECT\n    d->>'orderCode',\n    d->>'name',\n    d->>'phone',\n    NULLIF(d->>'moderatorName', ''),\n    d->>'fulfillmentMethod',\n    NULLIF(d->>'city', ''),\n    NULLIF(d->>'area', ''),\n    NULLIF(d->>'addressDetails', ''),\n    NULLIF(d->>'deliveryDate', '')::date,\n    NULLIF(d->>'deliveryTimeFrom', ''),\n    NULLIF(d->>'deliveryTimeTo', ''),\n    d->>'cakeType',\n    d->>'cakeSize',\n\n    CASE\n      WHEN NULLIF(d->>'dimensions', '') IS NULL THEN NULL\n      WHEN LEFT(BTRIM(d->>'dimensions'), 1) IN ('{', '[')\n        THEN (d->>'dimensions')::jsonb\n      ELSE to_jsonb(d->>'dimensions')\n    END,\n\n    NULLIF(d->>'numberOfTiers', '')::integer,\n    NULLIF(d->>'filling', ''),\n    NULLIF(d->>'covering', ''),\n    NULLIF(d->>'details', ''),\n\n    COALESCE(NULLIF(d->>'basePriceEGP', '')::numeric, 0),\n    COALESCE(NULLIF(d->>'cakeDesignExtraEGP', '')::numeric, 0),\n    COALESCE(NULLIF(d->>'addOnsTotalEGP', '')::numeric, 0),\n    COALESCE(NULLIF(d->>'deliveryFeeEGP', '')::numeric, 0),\n\n    COALESCE(NULLIF(d->>'discountType', ''), 'none'),\n    COALESCE(NULLIF(d->>'discountInputValue', '')::numeric, 0),\n    COALESCE(NULLIF(d->>'discountAmountEGP', '')::numeric, 0),\n\n    totals.total_amount,\n    totals.deposit_amount,\n    totals.total_amount - totals.deposit_amount,\n\n    NULLIF(d->>'orderSummary', ''),\n\n    CASE\n      WHEN totals.deposit_amount > 0 THEN 'تم التأكيد'\n      ELSE 'قيد التأكيد'\n    END,\n\n    COALESCE(\n      NULLIF(d->>'submittedAt', '')::timestamptz,\n      NOW()\n    )\n\n  FROM input\n\n  CROSS JOIN LATERAL (\n    SELECT\n      COALESCE(NULLIF(d->>'totalOrderEGP', '')::numeric, 0)\n        AS total_amount,\n\n      COALESCE(NULLIF(d->>'depositEGP', '')::numeric, 0)\n        AS deposit_amount\n  ) AS totals\n\n  WHERE totals.deposit_amount >= 0\n    AND totals.deposit_amount <= totals.total_amount\n\n  RETURNING id, order_code\n),\n\ninserted_addons AS (\n  INSERT INTO public.order_addons (\n    order_id,\n    product_id,\n    product_name,\n    unit,\n    quantity,\n    unit_price_egp,\n    design_extra_egp,\n    total_egp\n  )\n\n  SELECT\n    o.id,\n    addon->>'productId',\n    addon->>'productName',\n    COALESCE(NULLIF(addon->>'unit', ''), 'unit'),\n    COALESCE(NULLIF(addon->>'quantity', '')::numeric, 1),\n    COALESCE(NULLIF(addon->>'unitPriceEGP', '')::numeric, 0),\n    COALESCE(NULLIF(addon->>'designExtraEGP', '')::numeric, 0),\n    COALESCE(NULLIF(addon->>'totalEGP', '')::numeric, 0)\n\n  FROM inserted_order o\n  CROSS JOIN input i\n  CROSS JOIN LATERAL jsonb_array_elements(\n    COALESCE(i.d->'addOns', '[]'::jsonb)\n  ) AS addon\n\n  RETURNING id\n)\n\nSELECT\n  o.id AS order_id,\n  o.order_code,\n  'success'::text AS status,\n  (SELECT COUNT(*) FROM inserted_addons)::integer AS addons_saved\n\nFROM inserted_order o;\n",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($json)] }}"
+        }
+      },
+      "id": "fe6ee1ae-8e19-4cd5-a59d-88eb558f29ed",
+      "name": "Save Order + Add-ons",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1024,
+        -496
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst orderId = item.json.order_id;\nconst orderCode = item.json.order_code;\n\nif (!orderId) throw new Error('The saved order_id was not returned by PostgreSQL.');\n\nconst binary = item.binary ?? {};\nconst imageProps = Object.keys(binary).filter((key) =>\n  /^(cakeImage|depositImage)_\\d+$/i.test(key)\n);\n\nif (imageProps.length === 0) {\n  throw new Error('No cakeImage_* or depositImage_* binary images were received. Order was saved, but image upload cannot continue.');\n}\n\nconst result = [];\n\nfor (let index = 0; index < imageProps.length; index++) {\n  const property = imageProps[index];\n  const imageType = property.toLowerCase().startsWith('cakeimage') ? 'cake' : 'deposit';\n  const original = binary[property];\n  const originalName = original.fileName || `${property}.jpg`;\n  const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');\n  const mimeType = original.mimeType || 'application/octet-stream';\n  const buffer = await this.helpers.getBinaryDataBuffer(0, property);\n\n  const objectKey = `orders/${orderId}/${imageType}/${property}_${safeName}`;\n\n  result.push({\n    json: {\n      orderId,\n      orderCode,\n      sourceBinaryProperty: property,\n      imageType,\n      fileName: originalName,\n      objectKey,\n      mimeType,\n      fileSizeBytes: buffer.length\n    },\n    binary: { data: original }\n  });\n}\n\nreturn result;"
+      },
+      "id": "73daebd3-4b9f-447e-b31a-4c7dcaa979cd",
+      "name": "Prepare Images",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        -416
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "bucketName": "cake-store",
+        "fileName": "={{ $json.objectKey }}",
+        "additionalFields": {}
+      },
+      "id": "139ca0fa-ddd3-43cf-88d3-9b781fdf28b9",
+      "name": "Upload Image to R2",
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        -432
+      ],
+      "credentials": {
+        "s3": {
+          "id": "Wy7rEKYrJ0jloOf0",
+          "name": "cake-orders"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH input AS (\n  SELECT $1::jsonb AS d\n)\nINSERT INTO order_images (\n  order_id,\n  image_type,\n  file_name,\n  object_key,\n  mime_type,\n  file_size_bytes,\n  is_active,\n  created_at\n)\nSELECT\n  (d->>'orderId')::bigint,\n  d->>'imageType',\n  d->>'fileName',\n  d->>'objectKey',\n  NULLIF(d->>'mimeType', ''),\n  NULLIF(d->>'fileSizeBytes', '')::bigint,\n  TRUE,\n  NOW()\nFROM input\nRETURNING id, order_id, image_type, object_key, file_size_bytes;",
+        "options": {
+          "queryReplacement": "={{ [JSON.stringify($('Prepare Images').item.json)] }}"
+        }
+      },
+      "id": "b08c6970-e78e-4401-a90d-392329248d3e",
+      "name": "Save Image Metadata",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2144,
+        -432
+      ],
+      "alwaysOutputData": false,
+      "retryOnFail": false,
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nif (rows.length === 0) throw new Error('No image metadata rows were saved.');\n\nconst orderId = rows[0].json.order_id;\nconst uploaded = rows.length;\nconst byType = rows.reduce((acc, row) => {\n  const type = row.json.image_type;\n  acc[type] = (acc[type] || 0) + 1;\n  return acc;\n}, {});\n\nreturn [{\n  json: {\n    success: true,\n    orderId,\n    imagesUploaded: uploaded,\n    cakeImagesUploaded: byType.cake || 0,\n    depositImagesUploaded: byType.deposit || 0,\n    imageUploadStatus: 'success',\n    verifiedBy: 'S3 Upload operation completed successfully and image metadata was saved in PostgreSQL'\n  }\n}];"
+      },
+      "id": "31101f2b-63e2-47bc-bae5-a3a71332a7b7",
+      "name": "Verify Uploaded Images + Count",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2368,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "4b913fa8-ae02-4dca-a8cd-dd77a7ea778e",
+      "name": "Respond Success1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3040,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "7cd2e94e-c3bc-4ee4-82ca-53c714845f25",
+      "name": "Merge Saved Order + Original Images",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1248,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU",
+          "mode": "list",
+          "cachedResultName": "cheer new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2108472784,
+          "mode": "list",
+          "cachedResultName": "All orders",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit#gid=2108472784"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Code": "={{ $json.Code }}",
+            "Name": "={{ $json.Name }}",
+            "Phone ": "={{ $json['Phone '] }}",
+            "date": "={{ $json.date }}",
+            "Cake": "={{ $json.Cake }}",
+            "Sides": "={{ $json.Sides }}",
+            "Deliv": "={{ $json.Deliv }}",
+            "Discount": "={{ $json.Discount }}",
+            "Total": "={{ $json.Total }}",
+            "Deposit": "={{ $json.Deposit }}",
+            "Remain": "={{ $json.Remain }}",
+            "Confirm": "={{Number($json.Deposit) > 0  ? \"تم التأكيد\" : \"قيد التأكيد\"}}"
+          },
+          "matchingColumns": [
+            "Code"
+          ],
+          "schema": [
+            {
+              "id": "Code",
+              "displayName": "Code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone ",
+              "displayName": "Phone ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Cake",
+              "displayName": "Cake",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Sides",
+              "displayName": "Sides",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Deliv",
+              "displayName": "Deliv",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Discount",
+              "displayName": "Discount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Deposit",
+              "displayName": "Deposit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Remain",
+              "displayName": "Remain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total",
+              "displayName": "Total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confirm",
+              "displayName": "Confirm",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2144,
+        -624
+      ],
+      "id": "034a2547-8282-4d23-985f-f662c326fc95",
+      "name": "Append in all ",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQ8q3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU",
+          "mode": "list",
+          "cachedResultName": "cheer new",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gevpAZaXfLFO30ScmSgQIn3-QrZFUaPb0k3tLeCgMUU/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ (() => { const s = String($('add order').item.json.body.deliveryDate ?? ''); const m = s.match(/^\\d{4}-(\\d{2})-/); if (!m) throw new Error('deliveryDate must be YYYY-MM-DD'); return ['January','February','March','April','May','June','July','August','September','October','November','December'][Number(m[1])-1]; })() }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date": "={{ $('add order').item.json.body.deliveryDate }}",
+            "Code": "={{ $json.order_code }}",
+            "Name": "={{ $json.name }}",
+            "Cake": "={{  $json.basePriceEGP + $json.cakeDesignExtraEGP  }}",
+            "Deliv": "={{ $json.deliveryFeeEGP }}",
+            "Phone ": "={{ $json.phone }}",
+            "Total": "={{ $json.totalOrderEGP }}",
+            "Sides": "={{ $json.addOnsTotalEGP }}",
+            "Discount": "={{ $json.discountAmountEGP }}",
+            "Deposit": "={{ $json.depositEGP ?? 0}}",
+            "Remain": "={{ $json.remainingEGP ?? 0 }}",
+            "Confirm": "={{Number($json.depositEGP) > 0  ? \"تم التأكيد\" : \"قيد التأكيد\"}}"
+          },
+          "matchingColumns": [
+            "Code"
+          ],
+          "schema": [
+            {
+              "id": "Code",
+              "displayName": "Code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Phone ",
+              "displayName": "Phone ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Cake",
+              "displayName": "Cake",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Sides",
+              "displayName": "Sides",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Deliv",
+              "displayName": "Deliv",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Discount",
+              "displayName": "Discount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Deposit",
+              "displayName": "Deposit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Remain",
+              "displayName": "Remain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total",
+              "displayName": "Total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Confirm",
+              "displayName": "Confirm",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": true,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1920,
+        -624
+      ],
+      "id": "36353e22-b1e4-456c-8d0a-d3adf14c574b",
+      "name": "Append monthly ",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qPqssUjQ8q3FtSHi",
+          "name": "sheetswork"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "images-found-check",
+              "leftValue": "={{ !!$binary.depositImage_1 || !!$binary.cakeImage_1  }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "38509606-65e2-4f94-9e95-a8e9697b74e0",
+      "name": "Images Found?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1472,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nreturn [{ json: { images: { status: 'no_images', imagesUploaded: 0, cakeImagesUploaded: 0, depositImagesUploaded: 0 }, orderId: d.orderId, orderCode: d.orderCode } }];"
+      },
+      "id": "1868f533-6654-4abb-b650-5b065315d29f",
+      "name": "No Images Result1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2368,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const monthly = $('Append monthly ').all();\nconst allOrders = $input.all();\nfunction inspect(items) {\n  const errors = items.filter(x => x.json?.error || x.json?.errorMessage);\n  return { success: errors.length === 0, errors: errors.map(x => String(x.json.errorMessage || x.json.error?.message || x.json.error)) };\n}\nconst m = inspect(monthly);\nconst a = inspect(allOrders);\nreturn [{ json: { sheets: { success: m.success && a.success, monthly: m, allOrders: a } } }];"
+      },
+      "id": "24900139-6910-40b1-bc6e-ed3256885f71",
+      "name": "Check Google Sheets Results1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2368,
+        -624
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "c5f178f0-f96d-40f5-a35d-5849234c8924",
+      "name": "Merge Sheets + Images Status1",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2592,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst sheets = d.sheets || { success: false, monthly: {success:false, errors:['No Google Sheets result']}, allOrders: {success:false, errors:['No Google Sheets result']} };\nconst images = d.images || {\n  status: d.imageUploadStatus || 'success',\n  imagesUploaded: Number(d.imagesUploaded || 0),\n  cakeImagesUploaded: Number(d.cakeImagesUploaded || 0),\n  depositImagesUploaded: Number(d.depositImagesUploaded || 0)\n};\nconst warnings = [];\nif (!sheets.success) warnings.push('Order saved in PostgreSQL, but one or more Google Sheets updates failed.');\nif (images.status === 'failed') warnings.push('Order saved, but one or more image uploads failed.');\nreturn [{ json: {\n  success: true,\n  orderSaved: true,\n  orderId: d.orderId || d.order_id,\n  orderCode: d.orderCode || d.order_code,\n  googleSheets: sheets,\n  images,\n  warnings,\n  status: warnings.length ? 'partial_success' : 'success'\n} }];"
+      },
+      "id": "145ac2c7-f96f-4b14-9d60-651c6d178f0e",
+      "name": "Build Final Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2816,
+        -432
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://evo.ziad-n8n.cfd/message/sendText/Ziad%20Sakr",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "ZiadSakr123"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "120363429439080791@g.us"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.body.orderSummary }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        816,
+        -656
+      ],
+      "id": "a77f0ef6-6cc4-4a07-9f26-ff8120d36e8f",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "add order": {
+      "main": [
+        [
+          {
+            "node": "Normalize Payload",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Payload": {
+      "main": [
+        [
+          {
+            "node": "Save Order + Add-ons",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Saved Order + Original Images",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Save Order + Add-ons": {
+      "main": [
+        [
+          {
+            "node": "Merge Saved Order + Original Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Images": {
+      "main": [
+        [
+          {
+            "node": "Upload Image to R2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Image to R2": {
+      "main": [
+        [
+          {
+            "node": "Save Image Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Image Metadata": {
+      "main": [
+        [
+          {
+            "node": "Verify Uploaded Images + Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Uploaded Images + Count": {
+      "main": [
+        [
+          {
+            "node": "Merge Sheets + Images Status1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Saved Order + Original Images": {
+      "main": [
+        [
+          {
+            "node": "Append monthly ",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Images Found?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append monthly ": {
+      "main": [
+        [
+          {
+            "node": "Append in all ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Images Found?1": {
+      "main": [
+        [
+          {
+            "node": "Prepare Images",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Images Result1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append in all ": {
+      "main": [
+        [
+          {
+            "node": "Check Google Sheets Results1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Images Result1": {
+      "main": [
+        [
+          {
+            "node": "Merge Sheets + Images Status1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Check Google Sheets Results1": {
+      "main": [
+        [
+          {
+            "node": "Merge Sheets + Images Status1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Sheets + Images Status1": {
+      "main": [
+        [
+          {
+            "node": "Build Final Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Final Response1": {
+      "main": [
+        [
+          {
+            "node": "Respond Success1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b83f3f9d-aac5-4448-a984-8c088e9b8754",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0ab75c86239f609d9fbd1ee140caa2f304d88df720d9eb674bf2d29fe31ae784"
+  },
+  "nodeGroups": [],
+  "id": "CCZFlrwFjsTRC0LS",
+  "tags": []
+}

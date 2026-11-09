@@ -1,0 +1,316 @@
+{
+  "name": "search",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "get-order",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "842e1250-1d3c-4556-8290-9897cd60d96a",
+      "name": "Search Order Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -560,
+        480
+      ],
+      "webhookId": "d18c960b-8c53-42fa-9656-68e1636d1b2e"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst body = $input.first()?.json?.body ?? {};\n\nconst orderCode = String(body.orderCode ?? '')\n  .trim()\n  .toLowerCase();\n\nconst phone = String(body.phone ?? '').trim();\nconst digits = phone.replace(/\\D/g, '');\n\n// Validate order code: 6 digits followed by -c\nif (!/^\\d{6}-c$/.test(orderCode)) {\n  return [{\n    json: {\n      valid: false,\n      success: false,\n      message: 'كود الطلب غير صحيح.'\n    }\n  }];\n}\n\n// Validate Egyptian mobile number\nif (!/^01[0125]\\d{8}$/.test(digits)) {\n  return [{\n    json: {\n      valid: false,\n      success: false,\n      message: 'رقم الموبايل غير صحيح.'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    orderCode,\n    phone: digits\n  }\n}];\n"
+      },
+      "id": "1c931460-d78e-4733-8b16-ce4244a77578",
+      "name": "Validate Search Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bcdf85a7-71c0-46e4-92ad-4e0d25e2b7f2",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4589204e-938e-4979-a9f9-031e26c29bbb",
+      "name": "Input Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -80,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "\nWITH input AS (\n    SELECT\n        LOWER(BTRIM($1::text)) AS order_code,\n        REGEXP_REPLACE(\n            COALESCE($2::text, ''),\n            '\\D', '', 'g'\n        ) AS phone\n),\n\nmatched_order AS (\n    SELECT o.*\n    FROM public.orders o\n    CROSS JOIN input i\n    WHERE LOWER(BTRIM(o.order_code)) = i.order_code\n      AND REGEXP_REPLACE(\n            COALESCE(o.customer_phone, ''),\n            '\\D', '', 'g'\n          ) = i.phone\n    ORDER BY o.id DESC\n    LIMIT 1\n),\n\naddons AS (\n    SELECT\n        oa.order_id,\n        JSONB_AGG(\n            JSONB_BUILD_OBJECT(\n                'productId', oa.product_id,\n                'productName', oa.product_name,\n                'unit', oa.unit,\n                'quantity', oa.quantity,\n                'unitPriceEGP', oa.unit_price_egp,\n                'designExtraEGP', oa.design_extra_egp,\n                'totalEGP', oa.total_egp\n            )\n            ORDER BY oa.id\n        ) AS items\n    FROM public.order_addons oa\n    WHERE oa.order_id IN (\n        SELECT id FROM matched_order\n    )\n    GROUP BY oa.order_id\n),\n\nimages AS (\n    SELECT\n        oi.order_id,\n\n        COALESCE(\n            JSONB_AGG(\n                JSONB_BUILD_OBJECT(\n                    'id', oi.id,\n                    'imageType', oi.image_type,\n                    'fileName', oi.file_name,\n                    'objectKey', oi.object_key,\n                    'mimeType', oi.mime_type,\n                    'fileSizeBytes', oi.file_size_bytes\n                )\n                ORDER BY oi.id\n            ) FILTER (\n                WHERE oi.image_type = 'cake'\n            ),\n            '[]'::jsonb\n        ) AS cake,\n\n        COALESCE(\n            JSONB_AGG(\n                JSONB_BUILD_OBJECT(\n                    'id', oi.id,\n                    'imageType', oi.image_type,\n                    'fileName', oi.file_name,\n                    'objectKey', oi.object_key,\n                    'mimeType', oi.mime_type,\n                    'fileSizeBytes', oi.file_size_bytes\n                )\n                ORDER BY oi.id\n            ) FILTER (\n                WHERE oi.image_type = 'deposit'\n            ),\n            '[]'::jsonb\n        ) AS deposit\n\n    FROM public.order_images oi\n    WHERE oi.order_id IN (\n        SELECT id FROM matched_order\n    )\n      AND oi.is_active = TRUE\n      AND oi.deleted_at IS NULL\n    GROUP BY oi.order_id\n)\n\nSELECT\n    (o.id IS NOT NULL) AS success,\n\n    CASE\n        WHEN o.id IS NULL\n        THEN 'لم يتم العثور على طلب مطابق لكود الطلب ورقم الموبايل.'\n        ELSE 'تم العثور على الطلب.'\n    END AS message,\n\n    CASE\n        WHEN o.id IS NULL THEN NULL\n\n        ELSE JSONB_BUILD_OBJECT(\n            'id', o.id,\n            'orderCode', o.order_code,\n            'name', o.customer_name,\n            'phone', o.customer_phone,\n            'moderatorName', o.moderator_name,\n\n            'fulfillmentMethod', o.fulfillment_method,\n            'city', o.city,\n            'area', o.area,\n            'addressDetails', o.address_details,\n\n            'deliveryDate',\n                TO_CHAR(o.delivery_date, 'YYYY-MM-DD'),\n            'deliveryTimeFrom', o.delivery_time_from,\n            'deliveryTimeTo', o.delivery_time_to,\n\n            'cakeType', o.cake_type,\n            'cakeSize', o.cake_size,\n            'dimensions', o.dimensions,\n            'numberOfTiers', o.number_of_tiers,\n            'filling', o.filling,\n            'covering', o.covering,\n            'details', o.details,\n\n            'basePriceEGP', o.base_price_egp,\n            'cakeDesignExtraEGP', o.cake_design_extra_egp,\n            'addOnsTotalEGP', o.addons_total_egp,\n            'addOns', COALESCE(a.items, '[]'::jsonb),\n\n            'deliveryFeeEGP', o.delivery_fee_egp,\n            'discountType', o.discount_type,\n            'discountInputValue', o.discount_input_value,\n            'discountAmountEGP', o.discount_amount_egp,\n            'totalOrderEGP', o.total_order_egp,\n\n            'depositEGP', o.deposit_egp,\n            'remainingEGP', o.remaining_egp,\n            'orderStatus', o.order_status,\n            'orderSummary', o.order_summary,\n\n            'submittedAt', o.submitted_at,\n            'createdAt', o.created_at,\n            'updatedAt', o.updated_at,\n\n            'images', JSONB_BUILD_OBJECT(\n                'cake', COALESCE(i.cake, '[]'::jsonb),\n                'deposit', COALESCE(i.deposit, '[]'::jsonb)\n            )\n        )\n    END AS \"order\"\n\nFROM (SELECT 1) AS seed\nLEFT JOIN matched_order o ON TRUE\nLEFT JOIN addons a ON a.order_id = o.id\nLEFT JOIN images i ON i.order_id = o.id;\n",
+        "options": {
+          "queryReplacement": "={{ [$json.orderCode, $json.phone] }}"
+        }
+      },
+      "id": "f6ad9df1-03fc-4232-8e59-6707223f5267",
+      "name": "Find Order in PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        192,
+        368
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "MHK5MTd9u9WTDtBc",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "3db733d5-322b-46bc-ad9c-3f44b55891c8",
+      "name": "Return Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        192,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "bucketName": "cake-store",
+        "fileKey": "={{ $json.objectKey }}"
+      },
+      "id": "c0c51525-a148-42a8-8ec6-37b18963e380",
+      "name": "download Image to R2",
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        688,
+        368
+      ],
+      "credentials": {
+        "s3": {
+          "id": "Wy7rEKYrJ0jloOf0",
+          "name": "cake-orders"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst input = $input.first().json;\nconst order = input.order;\n\nif (!input.success || !order) {\n  return [{\n    json: {\n      success: false,\n      message: input.message || 'لم يتم العثور على الطلب'\n    }\n  }];\n}\n\nconst cakeImages = Array.isArray(order.images?.cake)\n  ? order.images.cake\n  : [];\n\nconst depositImages = Array.isArray(order.images?.deposit)\n  ? order.images.deposit\n  : [];\n\nconst allImages = [\n  ...cakeImages,\n  ...depositImages\n];\n\n// لا توجد صور في الطلب\nif (allImages.length === 0) {\n  return [{\n    json: {\n      ...order,\n      noImages: true,\n      images: {\n        cake: [],\n        deposit: []\n      }\n    }\n  }];\n}\n\n// كل صورة تصبح Item مستقل\nreturn allImages.map(image => ({\n  json: {\n    ...order,\n    image,\n    objectKey: image.objectKey\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        368
+      ],
+      "id": "57eb9b18-2a52-4bc5-9f44-fcda4a2ed0e3",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $input.all();\n\nif (items.length === 0) {\n  return [];\n}\n\nconst firstJson = items[0].json;\n\n// الحفاظ على بيانات الطلب\nconst {\n  image,\n  objectKey,\n  images,\n  cakeImages,\n  depositImages,\n  ...order\n} = firstJson;\n\nconst downloadedImages = [];\n\nfor (let index = 0; index < items.length; index++) {\n  const item = items[index];\n\n  // تحديد اسم الـBinary Property تلقائيًا\n  const binaryProperty = Object.keys(item.binary ?? {})[0];\n\n  if (!binaryProperty) {\n    throw new Error(\n      `الصورة رقم ${index + 1}: لا يوجد Binary Data في المدخلات`\n    );\n  }\n\n  const binaryData = item.binary[binaryProperty];\n\n  const buffer = await this.helpers.getBinaryDataBuffer(\n    index,\n    binaryProperty\n  );\n\n  // بيانات الصورة الأصلية\n  const imageInfo = item.json.image ?? item.json;\n\n  downloadedImages.push({\n    ...imageInfo,\n    dataUrl: `data:${binaryData.mimeType};base64,${buffer.toString('base64')}`\n  });\n}\n\nreturn [\n  {\n    json: {\n      ...order,\n      images: downloadedImages\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        368
+      ],
+      "id": "03fe3974-f599-44fc-a92b-2b65d017b681",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "1fb5fbbe-d75e-4e68-8a12-d5b89c64cdbf",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1216,
+        368
+      ]
+    }
+  ],
+  "pinData": {
+    "Search Order Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "cloudfare.ziad-n8n.cfd",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+            "content-length": "251",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "en-US,en;q=0.9,ar;q=0.8",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "156.210.1.105",
+            "cf-ipcountry": "EG",
+            "cf-ray": "a5460d44287ce20c-MRS",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-warp-tag-id": "c31204da-85d7-41ea-8f15-cbecf203675e",
+            "connection": "keep-alive",
+            "content-type": "multipart/form-data; boundary=----WebKitFormBoundaryetA8Y81pojRv06wr",
+            "origin": "http://127.0.0.1:5500",
+            "priority": "u=1, i",
+            "referer": "http://127.0.0.1:5500/",
+            "sec-ch-ua": "\"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"156\", \"Google Chrome\";v=\"156\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "x-forwarded-for": "156.210.1.105",
+            "x-forwarded-proto": "https"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "orderCode": "411403-c",
+            "phone": "01067461252"
+          },
+          "webhookUrl": "https://cloudfare.ziad-n8n.cfd/webhook/get-order",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Search Order Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Search Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Search Input": {
+      "main": [
+        [
+          {
+            "node": "Input Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Valid?": {
+      "main": [
+        [
+          {
+            "node": "Find Order in PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Order in PostgreSQL": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "download Image to R2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download Image to R2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "181a25f5-17d9-4b10-b74f-30ee569036df",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0ab75c86239f609d9fbd1ee140caa2f304d88df720d9eb674bf2d29fe31ae784"
+  },
+  "nodeGroups": [],
+  "id": "cky421ewxxU9p8Pf",
+  "tags": []
+}
