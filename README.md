@@ -99,6 +99,6 @@ Before running any project:
 
 ## Author
 
-Created and maintained by **sheetswork26-hue**.
+Created and maintained by **Ziad Sakr**.
 
 If you find these projects useful, feel free to explore the workflows and adapt the documented ideas to your own automation use cases.
